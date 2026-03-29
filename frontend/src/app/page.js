@@ -1,66 +1,36 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+/**
+ * Server Component — runs on the server (or during build).
+ *
+ * To call FastAPI from here (server-side):
+ *   - In Docker: use process.env.INTERNAL_API_URL  (e.g. http://backend:8000)
+ *   - Outside Docker: use process.env.INTERNAL_API_URL pointing to http://localhost:8000
+ *
+ * Example:
+ *   const res = await fetch(`${process.env.INTERNAL_API_URL}/health`);
+ *   const data = await res.json(); // { status: "ok" }
+ *
+ * See src/lib/supabase/client.js for the browser-side Supabase client.
+ */
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function Home() {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.js file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main style={{ fontFamily: "sans-serif", padding: "2rem" }}>
+      <h1>Next.js + FastAPI + Supabase Boilerplate</h1>
+      <ul>
+        <li>
+          FastAPI health:{" "}
+          <a href={`${apiUrl}/health`}>{apiUrl}/health</a>
+        </li>
+        <li>
+          FastAPI docs:{" "}
+          <a href={`${apiUrl}/docs`}>{apiUrl}/docs</a>
+        </li>
+        <li>
+          Supabase browser client: <code>src/lib/supabase/client.js</code>
+        </li>
+      </ul>
+    </main>
   );
 }
