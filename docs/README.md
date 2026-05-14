@@ -5,6 +5,7 @@ Project documentation lives here. Start with the briefing, then dive into the ar
 ## Where to start
 
 - **[`project-briefing.md`](./project-briefing.md)** — What we're building, why, the tech stack, and the constraints. Read this first.
+- **[`build-status.md`](./build-status.md)** — Current snapshot of the static UI: routes, components, design decisions, and what's not built yet. Read second.
 - **[`ui-design.md`](./ui-design.md)** — The full visual design system: tokens, component specs, screen layouts, and the suggested frontend file structure. Source of truth for anything you're rendering.
 - **[`aero-reference/`](./aero-reference/)** — Original SVG components from the Aero UI Figma kit, renamed by component. Open these in a browser or inspect their `<linearGradient>` defs when you need exact colour values that aren't already captured in `ui-design.md`.
 
