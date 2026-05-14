@@ -134,6 +134,20 @@ export default function CodeEditor({
           {LANGUAGE_LABEL[language] ?? language}
         </span>
         <span className={styles.fileName}>{fileName}.{language === "python" ? "py" : language === "javascript" ? "js" : "java"}</span>
+        {readOnly && (
+          <span className={styles.readOnlyBadge}>
+            <svg viewBox="0 0 12 12" aria-hidden>
+              <path
+                d="M3 5 V4 a3 3 0 1 1 6 0 V5 M3 5 H9 V10 H3 Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeLinejoin="round"
+              />
+            </svg>
+            READ ONLY
+          </span>
+        )}
         <div className={styles.topBarSpacer} />
         <button type="button" className={styles.iconBtn} aria-label="Reset">
           <svg viewBox="0 0 16 16" aria-hidden>

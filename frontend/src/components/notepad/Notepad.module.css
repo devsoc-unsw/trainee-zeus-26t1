@@ -1,0 +1,142 @@
+/* ──────────────────────────────────────────────────────────────────────
+   Notepad — Win7 notepad.exe recreation. Layered with the same Aero
+   title bar as Window, then a flat menu bar, white text body, and
+   the chunky raised status bar with the little resize grip.
+   ────────────────────────────────────────────────────────────────────── */
+
+.notepadWindow {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Menu bar — flatter, paler than the Aero glass menubar of other windows ── */
+.menu {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: #000;
+}
+
+.menuItem {
+  padding: 2px 8px;
+  cursor: default;
+  border: 1px solid transparent;
+  transition: background 100ms ease, border-color 100ms ease;
+}
+
+.menuItem:hover {
+  background: linear-gradient(to bottom, #fafdff 0%, #d6e8fa 100%);
+  border-color: rgba(120, 175, 220, 0.6);
+}
+
+/* The first letter underlined — Win7 had this for keyboard accelerators */
+.menuItemAccel {
+  text-decoration: underline;
+}
+
+/* ── Body — pure white textarea, plain monospace ──────────────────── */
+.body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: white;
+  border-top: 1px solid #919BAA;        /* Win7 inner border above textarea */
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.6),
+    inset -1px -1px 0 rgba(170, 180, 195, 0.4);
+}
+
+.textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  padding: 4px 6px;
+  background: white;
+  color: #000;
+  border: none;
+  outline: none;
+  caret-color: #000;
+  font-family: 'Lucida Console', 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 17px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  user-select: text;
+  /* Native Win7 scrollbars on Windows — closest CSS equivalent for cross-platform */
+}
+
+.textarea::placeholder {
+  color: #999;
+  font-style: normal;
+}
+
+.textarea::selection {
+  background: #316AC5;          /* Win7's selection blue */
+  color: white;
+}
+
+/* Custom scrollbars to match Win7 chunkier feel */
+.textarea::-webkit-scrollbar {
+  width: 17px;
+  height: 17px;
+}
+.textarea::-webkit-scrollbar-track {
+  background: linear-gradient(to right, #E4E5F1, #F1F2F7);
+  border-left: 1px solid #B4B8C5;
+}
+.textarea::-webkit-scrollbar-thumb {
+  background: linear-gradient(to right, #DDE0EC 0%, #BAC1D4 50%, #DDE0EC 100%);
+  border: 1px solid #8a90a5;
+  border-radius: 2px;
+}
+.textarea::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to right, #C9D5EF 0%, #A2B5D8 50%, #C9D5EF 100%);
+}
+
+/* ── Status bar (View → Status Bar in Win7) ────────────────────────── */
+.statusBar {
+  display: flex;
+  align-items: stretch;
+  height: 22px;
+  flex: 0 0 auto;
+  background: linear-gradient(to bottom, #EFF1F4 0%, #DCDFE6 100%);
+  border-top: 1px solid #919BAA;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-on-glass);
+}
+
+.statusSpacer {
+  flex: 1 1 auto;
+}
+
+.statusCell {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-left: 1px solid #919BAA;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The little diagonal-stripe resize grip at the bottom-right corner */
+.statusGrip {
+  width: 17px;
+  flex: 0 0 auto;
+  background-image:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 3px,
+      rgba(120, 130, 145, 0.65) 3px 4px,
+      transparent 4px 6px
+    );
+  background-size: 14px 14px;
+  background-position: bottom right;
+  background-repeat: no-repeat;
+  border-left: 1px solid #919BAA;
+}

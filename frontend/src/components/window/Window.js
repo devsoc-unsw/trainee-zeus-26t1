@@ -38,7 +38,7 @@ function IconClose() {
   );
 }
 
-function WindowIcon() {
+function DefaultWindowIcon() {
   /* Small Win7-style flag for the title bar app icon */
   return (
     <svg viewBox="0 0 24 24" className={styles.icon} aria-hidden="true">
@@ -52,18 +52,46 @@ function WindowIcon() {
   );
 }
 
-export default function Window({ title, children, width, menubar }) {
+/* Build the CSS style block from positioning props. If x/y are provided
+   the window is absolutely positioned on the desktop. Otherwise the parent
+   layout (e.g. flex/grid centring) controls placement. Later this is
+   where mouse-drag state will write back position changes. */
+function positionStyle({ x, y, width, height }) {
+  const px = (v) => (typeof v === "number" ? `${v}px` : v);
+  const style = {};
+  if (x !== undefined || y !== undefined) {
+    style.position = "absolute";
+    if (x !== undefined) style.left = px(x);
+    if (y !== undefined) style.top = px(y);
+  }
+  if (width !== undefined) style.width = px(width);
+  if (height !== undefined) style.height = px(height);
+  return Object.keys(style).length > 0 ? style : undefined;
+}
+
+export default function Window({
+  title,
+  children,
+  width,
+  height,
+  x,
+  y,
+  menubar,
+  icon,
+  className = "",
+}) {
+  const Icon = icon ?? <DefaultWindowIcon />;
   return (
     <div
-      className={styles.window}
-      style={width ? { width: typeof width === "number" ? `${width}px` : width } : undefined}
+      className={`${styles.window} ${className}`}
+      style={positionStyle({ x, y, width, height })}
     >
       <div className={styles.titlebar}>
         <span className={styles.titlebarTopGlare} aria-hidden />
         <span className={styles.titlebarSheen} aria-hidden />
 
         <div className={styles.titleSlot}>
-          <WindowIcon />
+          <span className={styles.iconWrap}>{Icon}</span>
           <span className={styles.title}>{title}</span>
         </div>
 

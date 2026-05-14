@@ -78,6 +78,18 @@
   flex: 0 0 auto;
 }
 
+.iconWrap {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.iconWrap svg {
+  width: 16px;
+  height: 16px;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6));
+}
+
 .title {
   font-family: var(--font-ui);
   font-size: 12px;
@@ -178,5 +190,12 @@
 .content {
   flex: 1 1 auto;
   position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.content > * {
+  flex: 1 1 auto;
   min-height: 0;
 }
