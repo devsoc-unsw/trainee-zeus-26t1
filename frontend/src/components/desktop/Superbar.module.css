@@ -1,0 +1,90 @@
+/* ──────────────────────────────────────────────────────────────────────
+   Superbar — the Win7 taskbar, always pinned at the bottom.
+   Built from: dark translucent base + diagonal sheen overlay +
+   1px top edge highlight. The orb sits flush at the left,
+   tasks fill the middle, system tray + show-desktop sliver at right.
+   ────────────────────────────────────────────────────────────────────── */
+
+.superbar {
+  position: relative;
+  flex: 0 0 auto;
+  height: 40px;
+  display: flex;
+  align-items: stretch;
+  background: var(--superbar-bg);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 -2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+/* Diagonal sheen overlay — emulates the Win7 glass shine */
+.glare {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.05) 50%,
+      rgba(0, 0, 0, 0.08) 100%
+    ),
+    linear-gradient(
+      105deg,
+      transparent 25%,
+      rgba(255, 255, 255, 0.08) 45%,
+      rgba(255, 255, 255, 0.02) 55%,
+      transparent 75%
+    );
+  pointer-events: none;
+}
+
+.divider {
+  width: 1px;
+  margin: 4px 6px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 255, 255, 0.25) 30%,
+    rgba(255, 255, 255, 0.25) 70%,
+    transparent
+  );
+}
+
+.tasks {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  flex: 1 1 auto;
+  padding: 2px 0;
+}
+
+.tray {
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 14px;
+  background:
+    linear-gradient(
+      to right,
+      transparent,
+      rgba(255, 255, 255, 0.05) 20%,
+      rgba(255, 255, 255, 0.05)
+    );
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Tiny show-desktop sliver at the far right (Win7 had this) */
+.peek {
+  width: 14px;
+  background: transparent;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+  transition: background 120ms ease;
+}
+.peek:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
