@@ -18,6 +18,7 @@ CREATE TABLE rooms (
   status room_status NOT NULL DEFAULT 'lobby',
   game_mode game_mode NOT NULL DEFAULT 'classic',
   current_round integer NOT NULL DEFAULT 0,
+  round_count smallint NOT NULL DEFAULT 3,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 

@@ -10,6 +10,7 @@ from typing import Any
 from pydantic import ValidationError
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
+from app.db import game_repository
 from app.game.prompts import fetch_random_prompt_text
 from app.game.room import (
     DEFAULT_TIME_LIMITS,
@@ -33,6 +34,24 @@ from app.game.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _persist_async(fn: Any, *args: Any, **kwargs: Any) -> None:
+    """Run a synchronous Supabase helper without blocking the event loop."""
+
+    async def _run() -> None:
+        try:
+            await asyncio.to_thread(fn, *args, **kwargs)
+        except Exception:  # noqa: BLE001
+            logger.debug("persist_async %s", getattr(fn, "__name__", fn), exc_info=True)
+
+    try:
+        asyncio.get_running_loop().create_task(_run())
+    except RuntimeError:
+        try:
+            fn(*args, **kwargs)
+        except Exception:  # noqa: BLE001
+            logger.debug("persist_sync %s", getattr(fn, "__name__", fn), exc_info=True)
 
 
 async def _ws_send(ws: WebSocket, payload: dict[str, Any]) -> None:
@@ -151,6 +170,16 @@ class GameHub:
         self._code_to_room[code] = room_id
         self._register_ctx(ws, room_id, player_id)
 
+        await asyncio.to_thread(
+            game_repository.persist_room_created,
+            room_id,
+            code,
+            player_id,
+            payload.name,
+            payload.round_count,
+            ws,
+        )
+
         await _ws_send(
             ws,
             outbound_event(
@@ -195,6 +224,15 @@ class GameHub:
 
         self._register_ctx(ws, room_id, player_id)
 
+        await asyncio.to_thread(
+            game_repository.persist_player_joined,
+            player_id,
+            payload.name,
+            room_id,
+            False,
+            ws,
+        )
+
         await _ws_send(
             ws,
             outbound_event(
@@ -225,6 +263,7 @@ class GameHub:
         self._clear_ctx(ws)
 
     async def _remove_player(self, room: Room, player_id: str) -> None:
+        old_host_id = room.host_id
         pl = room.players.pop(player_id, None)
         if pl and pl.socket:
             try:
@@ -238,12 +277,20 @@ class GameHub:
             self._delete_room(room)
             return
 
-        if room.host_id == player_id:
+        leaving_was_host = player_id == old_host_id
+        if leaving_was_host:
             room.host_id = room.player_order[0]
+        new_host_id = room.host_id
+
+        if leaving_was_host:
+            _persist_async(game_repository.persist_room_host, room.id, new_host_id)
+        _persist_async(game_repository.persist_player_deleted, player_id)
 
         await self._send_room_updated(room)
 
     def _delete_room(self, room: Room) -> None:
+        rid = room.id
+        _persist_async(game_repository.persist_room_deleted, rid)
         self._code_to_room.pop(room.code, None)
         self._rooms.pop(room.id, None)
         if room.timer_task:
@@ -265,10 +312,15 @@ class GameHub:
             if pl:
                 pl.socket = None
                 pl.connected = False
+            host_changed = False
             if room.host_id == player_id and room.players:
                 others = [pid for pid in room.player_order if pid != player_id]
                 if others:
                     room.host_id = others[0]
+                    host_changed = True
+            _persist_async(game_repository.persist_player_socket, player_id, None)
+            if host_changed:
+                _persist_async(game_repository.persist_room_host, room.id, room.host_id)
             await self._send_room_updated(room)
 
     async def _game_start(self, ws: WebSocket) -> None:
@@ -299,6 +351,13 @@ class GameHub:
             room.current_round = 0
             room.status = "active"
 
+        await asyncio.to_thread(
+            game_repository.persist_room_state,
+            room_id,
+            status="active",
+            current_round=0,
+        )
+
         await self._broadcast(
             room,
             "game:started",
@@ -327,6 +386,13 @@ class GameHub:
             for pid in room.rotation_order:
                 seed = self._build_seed(room, pid, round_num, rtype)
                 seeds[pid] = camelize_model(seed)
+
+        _persist_async(
+            game_repository.persist_room_state,
+            room.id,
+            status=room.status,
+            current_round=round_num,
+        )
 
         for pid in room.rotation_order:
             pl = room.players.get(pid)
@@ -464,9 +530,17 @@ class GameHub:
         await self._broadcast(room, "game:reveal", {"chains": chains})
 
         async def _over_delayed() -> None:
+            rid = room.id
+            rc = room.round_count
             await asyncio.sleep(REVEAL_TO_OVER_SEC)
             async with room.lock:
                 room.status = "over"
+            await asyncio.to_thread(
+                game_repository.persist_room_state,
+                rid,
+                status="over",
+                current_round=rc,
+            )
             await self._broadcast(room, "game:over", {})
 
         async with room.lock:
@@ -524,6 +598,8 @@ class GameHub:
         pl.socket = ws
         pl.connected = True
         self._register_ctx(ws, room.id, player_id)
+
+        _persist_async(game_repository.persist_player_socket, player_id, ws)
 
         snap = self._game_state(room, player_id)
         await _ws_send(ws, outbound_event("game:state", snap))
@@ -587,6 +663,13 @@ class GameHub:
             if room.over_task:
                 room.over_task.cancel()
                 room.over_task = None
+
+        _persist_async(
+            game_repository.persist_room_state,
+            room_id,
+            status="lobby",
+            current_round=0,
+        )
 
         await self._send_room_updated(room)
 
