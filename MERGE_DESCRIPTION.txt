@@ -1,0 +1,41 @@
+Merge description — Zeus / Code Telephone backend and related work
+
+Summary
+-------
+Delivers a FastAPI WebSocket game hub for Code Telephone / Zeus, Supabase-backed persistence for lobby metadata, OpenAPI plus human-readable API docs, automated and optional live database tests, and dependency fixes so Supabase and Starlette TestClient work together on current Python.
+
+Backend / realtime
+-------------------
+- Implements /ws/game JSON protocol (event / data): room create, join, leave; game start; round submit; game sync; game reset; plus server events for lobby, rounds, reveal, and game over.
+- Keeps authoritative game state in memory; mirrors room and player lifecycle and room status to Postgres when Supabase environment variables are set.
+
+Database
+--------
+- Adds app/db/game_repository.py with best-effort Supabase writes: create room and host, join player, socket id updates, host transfer, player and room deletes, room status updates including mapping in-memory "over" to Postgres enum "ended".
+- Updates backend/sql/supabase_game_schema.sql with rooms.round_count; adds backend/sql/002_rooms_round_count.sql for databases that were created from an older version of the main schema.
+- Wires persistence from app/game/manager.py using asyncio.to_thread or background tasks where appropriate.
+
+API documentation
+-----------------
+- Adds backend/openapi.yaml (OpenAPI 3, REST health, x-websocket extension) and a one-line pointer in app/main.py.
+- Adds docs/API.md for integrators: base URLs, link to openapi.yaml, /docs, WebSocket envelope, event lists, optional e2e smoke script.
+
+Testing and tooling
+-------------------
+- Expands tests/test_game_repository.py with per-table mocks and payload assertions.
+- Adds tests/test_supabase_db_integration.py marked integration: optional live Supabase checks when RUN_SUPABASE_DB_TESTS is set and real credentials are present; JWT-shaped service key gate; sb fixture clears Supabase client cache and handles client initialization failures gracefully.
+- Adds backend/pytest.ini with the integration marker.
+- Adds backend/scripts/e2e_smoke.sh and backend/requirements-dev.txt (Playwright, websockets) aligned with agents/skills/webapp-testing.
+
+Dependencies
+------------
+- Sets supabase to 2.15.1 and httpx to 0.27.2 to fix gotrue passing proxy= into httpx Client (incompatible with newer httpx) and to keep Starlette TestClient working (httpx 0.28 removes the ASGI app= shortcut used by TestClient).
+
+Housekeeping
+------------
+- Full pytest suite passes with integration tests skipped by default; integration tests run when opted in with valid Supabase credentials.
+
+Follow-ups (optional)
+---------------------
+- Rebuild Docker images after dependency changes.
+- When upgrading FastAPI or Starlette, revisit the httpx upper bound for TestClient versus latest httpx.
