@@ -1,8 +1,11 @@
 /* ──────────────────────────────────────────────────────────────────────
-   Lobby — stage centres the window on the desktop and animates it in.
+   Home wizard — classic Win7 wizard layout.
+   Banner with deep-blue heading on a very pale background, white content
+   area, footer with right-aligned Back/Next/Cancel and a "Step X of Y"
+   indicator on the left.
    ────────────────────────────────────────────────────────────────────── */
 
-.lobbyStage {
+.stage {
   width: 100%;
   height: 100%;
   display: grid;
@@ -10,170 +13,144 @@
   padding: 24px;
 }
 
-.lobbyStage > :global(div) {
+.stage > :global(div) {
   animation: windowIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transform-origin: center 60%;
 }
 
 @keyframes windowIn {
-  from {
-    opacity: 0;
-    transform: scale(0.86) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  from { opacity: 0; transform: scale(0.88) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* ── Menubar items ──────────────────────────────────────────────────── */
-.menuItems {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  height: 100%;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  color: var(--text-on-glass);
-}
-.menuItems > span {
-  padding: 2px 6px;
-  border-radius: 2px;
-  cursor: default;
-  transition: background 100ms ease;
-}
-.menuItems > span:hover {
-  background: rgba(140, 180, 220, 0.35);
-}
-
-/* ── Body ───────────────────────────────────────────────────────────── */
-.lobbyBody {
-  padding: 18px 22px 16px;
+/* The wizard fills the window's content area */
+.wizard {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  background:
-    linear-gradient(to bottom, #fbfdff 0%, #eef4fa 100%);
+  height: 100%;
+  background: white;
 }
 
-.header {
+/* ── Banner ────────────────────────────────────────────────────────── */
+.banner {
+  flex: 0 0 auto;
+  padding: 16px 24px 14px;
+  background:
+    linear-gradient(to bottom, #fdfeff 0%, #f3f7fc 100%);
+  border-bottom: 1px solid #cdd9e8;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.bannerTitle {
+  /* Classic Win7 wizard heading colour */
+  color: #003399;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.bannerSubtitle {
+  margin: 4px 0 0 12px;
+  font-size: 12px;
+  color: var(--text-on-glass);
+  line-height: 1.3;
+}
+
+/* ── Content ───────────────────────────────────────────────────────── */
+.content {
+  flex: 1 1 auto;
+  padding: 18px 28px;
+  background: white;
+  overflow-y: auto;
+}
+
+.stepBody {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
   gap: 12px;
 }
-.roomLabel {
+
+/* ── Form bits ─────────────────────────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 320px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  color: var(--text-on-glass);
+}
+
+.hint {
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
   color: var(--text-muted);
-}
-.roomCode {
-  font-family: var(--font-code);
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--w7-blue-900);
-  text-shadow: 0 1px 0 white;
+  line-height: 1.45;
+  margin-top: 2px;
+  max-width: 440px;
 }
 
-/* ── Section ────────────────────────────────────────────────────────── */
-.section {
+/* ── Method options ───────────────────────────────────────────────── */
+.option {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
 }
-.sectionHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+
+.option + .option {
+  margin-top: 6px;
 }
-.sectionTitle {
-  font-size: var(--fs-section);
-  font-weight: 600;
-  color: var(--text-on-glass);
-}
-.muted {
+
+.optionHint {
+  font-size: 11px;
   color: var(--text-muted);
-  font-weight: 400;
+  line-height: 1.4;
+  margin-left: 19px;
 }
 
-/* ── Player list ────────────────────────────────────────────────────── */
-.playerList {
-  padding: 4px;
-}
-.playerUl {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-.playerRow {
+.joinRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
-  border-radius: 3px;
+  gap: 8px;
+  margin: 6px 0 0 19px;
+  max-width: 360px;
+  transition: opacity 160ms ease;
 }
-.playerRow + .playerRow {
-  border-top: 1px solid rgba(120, 150, 180, 0.18);
+
+.joinRow.disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
-.playerName {
-  font-weight: 600;
+
+.joinLabel {
+  font-size: 12px;
   color: var(--text-on-glass);
-}
-.hostTag {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--w7-blue-700);
-  background: rgba(120, 200, 245, 0.18);
-  border: 1px solid rgba(120, 200, 245, 0.5);
-  padding: 1px 5px;
-  border-radius: 2px;
-}
-.spacer {
-  flex: 1 1 auto;
+  white-space: nowrap;
 }
 
-.empty {
-  opacity: 0.55;
+/* ── Footer ────────────────────────────────────────────────────────── */
+.footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background:
+    linear-gradient(to bottom, #f0f3f7 0%, #dde3eb 100%);
+  border-top: 1px solid #b8c2d0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-.emptyAvatar {
-  width: 32px;
-  height: 32px;
-  border: 1px dashed rgba(120, 150, 180, 0.6);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.4);
-}
-.emptyText {
-  font-style: italic;
+
+.stepIndicator {
+  font-size: 11px;
   color: var(--text-muted);
+  letter-spacing: 0.3px;
 }
 
-/* ── Language row ───────────────────────────────────────────────────── */
-.langRow {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 4px 2px;
-}
-
-/* ── Footer / actions row ───────────────────────────────────────────── */
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 4px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(120, 150, 180, 0.22);
-}
 .flex {
   flex: 1 1 auto;
-}
-.readyCount {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-right: 4px;
 }

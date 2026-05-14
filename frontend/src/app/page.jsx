@@ -1,115 +1,188 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Window from "@/components/window/Window";
-import GlassPanel from "@/components/glass/GlassPanel";
 import Button from "@/components/input/Button";
-import Checkbox from "@/components/input/Checkbox";
 import Radio from "@/components/input/Radio";
-import PlayerAvatar from "@/components/game/PlayerAvatar";
+import TextField from "@/components/input/TextField";
 import styles from "./page.module.css";
 
-/* ──────────────────────────────────────────────────────────────────────
-   Static mock data for the lobby. Wired up later.
-   ────────────────────────────────────────────────────────────────────── */
-const ROOM_CODE = "ROOM-4829";
-const MAX_PLAYERS = 6;
+/* The home screen is a classic Win7 wizard:
+   - Banner header with title + subtitle
+   - White content area with form controls
+   - Footer with Back / Next / Cancel right-aligned
 
-const players = [
-  { id: 1, name: "Jordan",  initials: "JS", ready: true,  host: true  },
-  { id: 2, name: "Amrita",  initials: "AM", ready: true,  host: false },
-  { id: 3, name: "Lukas",   initials: "LK", ready: false, host: false },
-];
+   Two steps:
+   1. Pick a nickname
+   2. Choose how to play (Create / Join / Quick play)
+*/
 
-const languages = [
-  { id: "python",     label: "Python" },
-  { id: "javascript", label: "JavaScript" },
-  { id: "java",       label: "Java" },
-];
-
-const SELECTED_LANG = "python";
+const TOTAL_STEPS = 2;
 
 export default function Home() {
-  const emptySlots = MAX_PLAYERS - players.length;
+  const router = useRouter();
+  const [step, setStep] = useState(1);
+  const [nickname, setNickname] = useState("");
+  const [method, setMethod] = useState("create");
+  const [joinInput, setJoinInput] = useState("");
+
+  const canAdvance =
+    step === 1
+      ? nickname.trim().length > 0
+      : method === "join"
+        ? joinInput.trim().length > 0
+        : true;
+
+  const isLast = step === TOTAL_STEPS;
+
+  const handleNext = () => {
+    if (!canAdvance) return;
+    if (isLast) {
+      /* In a real wired-up app: create / join / matchmake.
+         For static UI, all three land in the waiting room. */
+      router.push("/waiting-room");
+    } else {
+      setStep(step + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (step > 1) setStep(step - 1);
+  };
 
   return (
-    <div className={styles.lobbyStage}>
-      <Window
-        title={`Code Telephone — ${ROOM_CODE}`}
-        width={580}
-        menubar={
-          <div className={styles.menuItems}>
-            <span>File</span>
-            <span>Edit</span>
-            <span>View</span>
-            <span>Help</span>
+    <div className={styles.stage}>
+      <Window title="Welcome to Code Telephone" width={540} height={420}>
+        <div className={styles.wizard}>
+          {/* ── Banner ───────────────────────────────────────────── */}
+          <div className={styles.banner}>
+            <h2 className={styles.bannerTitle}>
+              {step === 1
+                ? "Welcome to Code Telephone"
+                : "How would you like to play?"}
+            </h2>
+            <p className={styles.bannerSubtitle}>
+              {step === 1
+                ? "Pick a nickname to get started."
+                : "Choose one of the options below, then click Finish."}
+            </p>
           </div>
-        }
-      >
-        <div className={styles.lobbyBody}>
-          <header className={styles.header}>
-            <div className={styles.roomLabel}>Room Code</div>
-            <div className={styles.roomCode}>{ROOM_CODE}</div>
-          </header>
 
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h2 className={styles.sectionTitle}>
-                Players <span className={styles.muted}>({players.length}/{MAX_PLAYERS})</span>
-              </h2>
-            </div>
+          {/* ── Content ──────────────────────────────────────────── */}
+          <div className={styles.content}>
+            {step === 1 && <NicknameStep value={nickname} onChange={setNickname} />}
+            {step === 2 && (
+              <MethodStep
+                method={method}
+                onMethodChange={setMethod}
+                joinInput={joinInput}
+                onJoinInputChange={setJoinInput}
+              />
+            )}
+          </div>
 
-            <GlassPanel className={styles.playerList}>
-              <ul className={styles.playerUl}>
-                {players.map((p) => (
-                  <li key={p.id} className={styles.playerRow}>
-                    <PlayerAvatar initials={p.initials} seed={p.name} />
-                    <span className={styles.playerName}>{p.name}</span>
-                    {p.host && <span className={styles.hostTag}>host</span>}
-                    <span className={styles.spacer} />
-                    <Checkbox
-                      state={p.ready ? "checked" : "none"}
-                      label={p.ready ? "Ready" : "Not ready"}
-                    />
-                  </li>
-                ))}
-                {Array.from({ length: emptySlots }).map((_, i) => (
-                  <li
-                    key={`empty-${i}`}
-                    className={`${styles.playerRow} ${styles.empty}`}
-                  >
-                    <span className={styles.emptyAvatar} />
-                    <span className={styles.emptyText}>Empty slot</span>
-                  </li>
-                ))}
-              </ul>
-            </GlassPanel>
-          </section>
-
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h2 className={styles.sectionTitle}>Language</h2>
-            </div>
-            <div className={styles.langRow}>
-              {languages.map((l) => (
-                <Radio
-                  key={l.id}
-                  name="language"
-                  value={l.id}
-                  checked={l.id === SELECTED_LANG}
-                  label={l.label}
-                />
-              ))}
-            </div>
-          </section>
-
-          <footer className={styles.actions}>
-            <Button>Leave</Button>
-            <span className={styles.flex} />
-            <span className={styles.readyCount}>
-              {players.filter((p) => p.ready).length} of {players.length} ready
+          {/* ── Footer ───────────────────────────────────────────── */}
+          <div className={styles.footer}>
+            <span className={styles.stepIndicator}>
+              Step {step} of {TOTAL_STEPS}
             </span>
-            <Button variant="primary">Start Game</Button>
-          </footer>
+            <span className={styles.flex} />
+            <Button disabled={step === 1} onClick={handleBack}>
+              {"< Back"}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!canAdvance}
+              onClick={handleNext}
+            >
+              {isLast ? "Finish" : "Next >"}
+            </Button>
+            <Button>Cancel</Button>
+          </div>
         </div>
       </Window>
+    </div>
+  );
+}
+
+/* ── Step 1: nickname ─────────────────────────────────────────────── */
+function NicknameStep({ value, onChange }) {
+  return (
+    <div className={styles.stepBody}>
+      <label className={styles.field}>
+        <span className={styles.fieldLabel}>Your nickname:</span>
+        <TextField
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="e.g. Jordan"
+          maxLength={20}
+          autoFocus
+        />
+      </label>
+      <p className={styles.hint}>
+        This is how other players will see you in the chain. You can use up to
+        20 characters.
+      </p>
+    </div>
+  );
+}
+
+/* ── Step 2: choose method ────────────────────────────────────────── */
+function MethodStep({ method, onMethodChange, joinInput, onJoinInputChange }) {
+  return (
+    <div className={styles.stepBody}>
+      <div className={styles.option}>
+        <Radio
+          name="method"
+          value="create"
+          label="Create a new room"
+          checked={method === "create"}
+          onChange={() => onMethodChange("create")}
+        />
+        <p className={styles.optionHint}>
+          You&apos;ll be the host. Other players join with the room code you
+          share.
+        </p>
+      </div>
+
+      <div className={styles.option}>
+        <Radio
+          name="method"
+          value="join"
+          label="Join an existing room"
+          checked={method === "join"}
+          onChange={() => onMethodChange("join")}
+        />
+        <p className={styles.optionHint}>
+          Enter the room code your host gave you, or paste an invite link.
+        </p>
+        <div
+          className={`${styles.joinRow} ${method === "join" ? "" : styles.disabled}`}
+        >
+          <span className={styles.joinLabel}>Code or link:</span>
+          <TextField
+            value={joinInput}
+            onChange={(e) => onJoinInputChange(e.target.value)}
+            placeholder="ROOM-0000  or  /r/ROOM-0000"
+            disabled={method !== "join"}
+            maxLength={64}
+          />
+        </div>
+      </div>
+
+      <div className={styles.option}>
+        <Radio
+          name="method"
+          value="quick"
+          label="Quick play"
+          checked={method === "quick"}
+          onChange={() => onMethodChange("quick")}
+        />
+        <p className={styles.optionHint}>
+          Get matched with random players who are looking for a game right now.
+        </p>
+      </div>
     </div>
   );
 }
