@@ -29,8 +29,6 @@ htmlcov/
 # ruff / linting
 .ruff_cache/
 
-docs/
-
 # Node.js
 node_modules/
 .next/
