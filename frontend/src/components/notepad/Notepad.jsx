@@ -53,6 +53,7 @@ export default function Notepad({
   initialValue = "",
   placeholder,
   showStatusBar = true,
+  readOnly = false,
   x,
   y,
   width = 460,
@@ -62,6 +63,13 @@ export default function Notepad({
   const [value, setValue] = useState(initialValue);
   const [cursor, setCursor] = useState({ ln: 1, col: 1 });
   const ref = useRef(null);
+
+  /* Windows convention — when a file is opened read-only, the application
+     appends "[Read Only]" to the document name in the title bar. Word and
+     Excel both do this; we follow suit. */
+  const titleText = readOnly
+    ? `${fileName} [Read Only] - Notepad`
+    : `${fileName} - Notepad`;
 
   const updateCursor = (el) => {
     const idx = el.selectionStart ?? 0;
@@ -88,7 +96,7 @@ export default function Notepad({
 
   return (
     <Window
-      title={`${fileName} - Notepad`}
+      title={titleText}
       icon={<NotepadIcon />}
       menubar={<NotepadMenu />}
       x={x}
@@ -97,20 +105,22 @@ export default function Notepad({
       height={height}
       className={styles.notepadWindow}
     >
-      <div className={styles.body}>
+      <div className={`${styles.body} ${readOnly ? styles.readOnlyBody : ""}`}>
         <textarea
           id={id}
           ref={ref}
           className={styles.textarea}
           value={value}
           onChange={(e) => {
+            if (readOnly) return;
             setValue(e.target.value);
             updateCursor(e.currentTarget);
           }}
           placeholder={placeholder}
-          spellCheck
+          spellCheck={!readOnly}
           autoCorrect="off"
           wrap="soft"
+          readOnly={readOnly}
           aria-label={`${fileName} text content`}
         />
         {showStatusBar && (

@@ -49,6 +49,18 @@
     inset -1px -1px 0 rgba(170, 180, 195, 0.4);
 }
 
+/* Read-only documents — Win7 used a very faint off-white tint to indicate
+   "you can look but not touch". Subtle, not harsh. */
+.readOnlyBody {
+  background: #FAFBFD;
+}
+
+.readOnlyBody .textarea {
+  background: #FAFBFD;
+  caret-color: transparent;
+  cursor: default;
+}
+
 .textarea {
   flex: 1 1 auto;
   width: 100%;
