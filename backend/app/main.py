@@ -1,8 +1,10 @@
+# Canonical OpenAPI 3 spec (YAML): ../openapi.yaml
 import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.game_ws import router as game_ws_router
 from app.routers.health import router as health_router
 
 app = FastAPI(title="Backend API")
@@ -19,3 +21,4 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(game_ws_router)
