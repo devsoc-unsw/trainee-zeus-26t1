@@ -1,0 +1,201 @@
+/* ──────────────────────────────────────────────────────────────────────
+   Window — Aero App Window from app-window.svg.
+   Layered title bar (gradient base + upper glare overlay + diagonal
+   sheen), content area on white, drop shadow per Win7 windows.
+   ────────────────────────────────────────────────────────────────────── */
+
+.window {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: var(--radius-window);
+  box-shadow:
+    var(--shadow-window),
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 0 0 2px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  font-size: var(--fs-body);
+  color: var(--text-on-glass);
+}
+
+/* ── Title bar ─────────────────────────────────────────────────────── */
+.titlebar {
+  position: relative;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  background: var(--titlebar-active);
+  border-bottom: 1px solid rgba(140, 160, 185, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  isolation: isolate;
+}
+
+/* Upper-half lighter overlay — gives the bar its silvery sheen */
+.titlebarTopGlare {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.55),
+    rgba(255, 255, 255, 0)
+  );
+  pointer-events: none;
+}
+
+/* Diagonal sheen sweep — the moving-glass detail */
+.titlebarSheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.6) 45%,
+    rgba(255, 255, 255, 0.2) 55%,
+    transparent 72%
+  );
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.titleSlot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  z-index: 1;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6));
+  flex: 0 0 auto;
+}
+
+.iconWrap {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.iconWrap svg {
+  width: 16px;
+  height: 16px;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6));
+}
+
+.title {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--titlebar-text);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Window controls (min / max / close) ───────────────────────────── */
+.controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  z-index: 1;
+}
+
+.ctrl {
+  position: relative;
+  width: 44px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text-on-glass);
+  background:
+    linear-gradient(
+      to bottom,
+      var(--wc-grey-500) 79.4%,
+      var(--wc-grey-400) 93.3%
+    );
+  border: 1px solid var(--wc-grey-edge);
+  border-top: none;
+  border-bottom: none;
+  border-right: none;
+  cursor: pointer;
+  transition: background 140ms ease, filter 140ms ease;
+}
+
+.ctrl::before {
+  /* the small E7E7E7 top-edge highlight stripe from app-window.svg */
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    to bottom,
+    var(--wc-highlight),
+    rgba(231, 231, 231, 0)
+  );
+  pointer-events: none;
+}
+
+.ctrl svg {
+  width: 12px;
+  height: 12px;
+}
+
+.ctrl:hover {
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(140, 180, 220, 0.5) 0%,
+      rgba(100, 150, 200, 0.45) 100%
+    );
+}
+
+.close {
+  color: white;
+  background: var(--close-btn);
+  border-left: 1px solid rgba(120, 30, 12, 0.6);
+  border-right: 1px solid rgba(120, 30, 12, 0.6);
+}
+
+.close:hover {
+  filter: brightness(1.15) saturate(1.1);
+}
+
+.close:active {
+  filter: brightness(0.92);
+}
+
+/* ── Menubar (optional, e.g. "File Edit View Help") ────────────────── */
+.menubar {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 6px;
+  background: linear-gradient(to bottom, #e8edf3, #d4dce4);
+  border-bottom: 1px solid rgba(140, 160, 185, 0.4);
+  font-size: 11px;
+  color: var(--text-on-glass);
+}
+
+/* ── Content area ──────────────────────────────────────────────────── */
+.content {
+  flex: 1 1 auto;
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.content > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}

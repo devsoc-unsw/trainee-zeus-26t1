@@ -1,0 +1,179 @@
+/* ──────────────────────────────────────────────────────────────────────
+   Lobby — stage centres the window on the desktop and animates it in.
+   ────────────────────────────────────────────────────────────────────── */
+
+.lobbyStage {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.lobbyStage > :global(div) {
+  animation: windowIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center 60%;
+}
+
+@keyframes windowIn {
+  from {
+    opacity: 0;
+    transform: scale(0.86) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Menubar items ──────────────────────────────────────────────────── */
+.menuItems {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 100%;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-on-glass);
+}
+.menuItems > span {
+  padding: 2px 6px;
+  border-radius: 2px;
+  cursor: default;
+  transition: background 100ms ease;
+}
+.menuItems > span:hover {
+  background: rgba(140, 180, 220, 0.35);
+}
+
+/* ── Body ───────────────────────────────────────────────────────────── */
+.lobbyBody {
+  padding: 18px 22px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background:
+    linear-gradient(to bottom, #fbfdff 0%, #eef4fa 100%);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.roomLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+.roomCode {
+  font-family: var(--font-code);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--w7-blue-900);
+  text-shadow: 0 1px 0 white;
+}
+
+/* ── Section ────────────────────────────────────────────────────────── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.sectionTitle {
+  font-size: var(--fs-section);
+  font-weight: 600;
+  color: var(--text-on-glass);
+}
+.muted {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ── Player list ────────────────────────────────────────────────────── */
+.playerList {
+  padding: 4px;
+}
+.playerUl {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.playerRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 3px;
+}
+.playerRow + .playerRow {
+  border-top: 1px solid rgba(120, 150, 180, 0.18);
+}
+.playerName {
+  font-weight: 600;
+  color: var(--text-on-glass);
+}
+.hostTag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--w7-blue-700);
+  background: rgba(120, 200, 245, 0.18);
+  border: 1px solid rgba(120, 200, 245, 0.5);
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+.spacer {
+  flex: 1 1 auto;
+}
+
+.empty {
+  opacity: 0.55;
+}
+.emptyAvatar {
+  width: 32px;
+  height: 32px;
+  border: 1px dashed rgba(120, 150, 180, 0.6);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.4);
+}
+.emptyText {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* ── Language row ───────────────────────────────────────────────────── */
+.langRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 4px 2px;
+}
+
+/* ── Footer / actions row ───────────────────────────────────────────── */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(120, 150, 180, 0.22);
+}
+.flex {
+  flex: 1 1 auto;
+}
+.readyCount {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: 4px;
+}

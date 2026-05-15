@@ -1,0 +1,303 @@
+/* ──────────────────────────────────────────────────────────────────────
+   CodeEditor — LeetCode/HackerRank-style IDE with Aero chrome.
+   Outer chrome is glassy/light. Inner editor body is dark like VSCode.
+   ────────────────────────────────────────────────────────────────────── */
+
+.editor {
+  --editor-bg:       #1e2733;
+  --editor-bg-alt:   #19212c;
+  --gutter-bg:       #182029;
+  --gutter-fg:       #5a6878;
+  --gutter-active:   #c0d0e0;
+  --selection-bg:    rgba(80, 150, 220, 0.35);
+  --caret-color:     #e6eef5;
+  --code-fg:         #d6e0eb;
+
+  --tok-keyword:  #c586c0;
+  --tok-string:   #ce9178;
+  --tok-number:   #b5cea8;
+  --tok-comment:  #6a9955;
+  --tok-function: #dcdcaa;
+  --tok-builtin:  #4ec9b0;
+  --tok-operator: #d4d4d4;
+  --tok-punct:    #d4d4d4;
+
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(60, 90, 130, 0.7);
+  border-radius: 5px;
+  background: var(--editor-bg);
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 4px 12px rgba(0, 0, 0, 0.25);
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  color: var(--code-fg);
+  isolation: isolate;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────── */
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  height: 32px;
+  background:
+    linear-gradient(to bottom,
+      #eef4fa 0%,
+      #d8e2ee 50%,
+      #c6d2df 51%,
+      #d4dee9 100%);
+  border-bottom: 1px solid rgba(60, 90, 130, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(140, 160, 185, 0.18);
+  color: var(--text-on-glass);
+  position: relative;
+}
+
+.topBar::after {
+  /* Diagonal Aero sheen */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.55) 45%,
+    rgba(255, 255, 255, 0.2) 55%,
+    transparent 72%
+  );
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.langBadge {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  background: linear-gradient(to bottom, #fbfdff, #d8e2ee);
+  border: 1px solid rgba(100, 150, 200, 0.6);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  color: var(--w7-blue-900);
+}
+
+.langDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #6ec8f5, #1a6b9e);
+  box-shadow: 0 0 4px rgba(120, 200, 245, 0.6);
+}
+
+.fileName {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+}
+
+.readOnlyBadge {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #8B6010;
+  background: linear-gradient(to bottom, #FFF3CC, #FCD974);
+  border: 1px solid rgba(180, 130, 40, 0.6);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.readOnlyBadge svg {
+  width: 10px;
+  height: 10px;
+}
+
+.topBarSpacer {
+  flex: 1 1 auto;
+}
+
+.iconBtn {
+  position: relative;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(to bottom, #fbfdff, #e0e8f0);
+  border: 1px solid rgba(100, 150, 200, 0.5);
+  border-radius: 3px;
+  color: var(--text-on-glass);
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 1px rgba(0, 0, 0, 0.08);
+  transition: filter 140ms ease, box-shadow 140ms ease;
+}
+
+.iconBtn:hover {
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 0 0 1px rgba(120, 200, 245, 0.5),
+    0 0 4px rgba(120, 200, 245, 0.4);
+}
+
+.iconBtn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ── Body (the dark editor area) ───────────────────────────────────── */
+.body {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  background: var(--editor-bg);
+  position: relative;
+}
+
+.gutter {
+  flex: 0 0 auto;
+  width: 44px;
+  background: var(--gutter-bg);
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--gutter-fg);
+  font-family: var(--font-code);
+  font-size: 12px;
+  line-height: 19px;
+  padding: 10px 8px 10px 0;
+  text-align: right;
+  user-select: none;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.lineNumber {
+  height: 19px;
+}
+
+.codeArea {
+  flex: 1 1 auto;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* The textarea + the highlighted <pre> share these exact properties so
+   their glyphs land on top of each other to the pixel. */
+.codeArea pre,
+.codeArea textarea {
+  margin: 0;
+  padding: 10px 14px;
+  font-family: var(--font-code);
+  font-size: 13px;
+  line-height: 19px;
+  letter-spacing: 0;
+  tab-size: 4;
+  white-space: pre;
+  word-wrap: normal;
+  border: none;
+  outline: none;
+}
+
+.highlight {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  color: var(--code-fg);
+  pointer-events: none;
+  background: transparent;
+  z-index: 0;
+}
+
+.textarea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--caret-color);
+  z-index: 1;
+}
+
+.textarea::selection {
+  background: var(--selection-bg);
+  color: transparent;
+}
+
+/* Scrollbar styling — keeps the dark editor feel */
+.highlight::-webkit-scrollbar,
+.textarea::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.highlight::-webkit-scrollbar-track,
+.textarea::-webkit-scrollbar-track {
+  background: var(--editor-bg-alt);
+}
+.highlight::-webkit-scrollbar-thumb,
+.textarea::-webkit-scrollbar-thumb {
+  background: rgba(140, 160, 185, 0.25);
+  border-radius: 5px;
+  border: 2px solid var(--editor-bg-alt);
+}
+.highlight::-webkit-scrollbar-thumb:hover,
+.textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 160, 185, 0.45);
+}
+
+/* ── Token colours ─────────────────────────────────────────────────── */
+.highlight :global(.tok-keyword)  { color: var(--tok-keyword);  font-weight: 600; }
+.highlight :global(.tok-string)   { color: var(--tok-string); }
+.highlight :global(.tok-number)   { color: var(--tok-number); }
+.highlight :global(.tok-comment)  { color: var(--tok-comment); font-style: italic; }
+.highlight :global(.tok-function) { color: var(--tok-function); }
+.highlight :global(.tok-builtin)  { color: var(--tok-builtin); }
+.highlight :global(.tok-operator) { color: var(--tok-operator); }
+.highlight :global(.tok-punctuation) { color: var(--tok-punct); }
+
+/* ── Status bar ────────────────────────────────────────────────────── */
+.statusBar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  padding: 0 10px;
+  background: linear-gradient(to bottom, #15a0d4, #0a78b8);
+  color: white;
+  font-size: 11px;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  border-top: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  font-variant-numeric: tabular-nums;
+}
+
+.statusSep {
+  width: 1px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.statusSpacer {
+  flex: 1 1 auto;
+}

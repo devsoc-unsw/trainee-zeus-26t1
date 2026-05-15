@@ -1,142 +1,156 @@
-.page {
-  --background: #fafafa;
-  --foreground: #fff;
+/* ──────────────────────────────────────────────────────────────────────
+   Home wizard — classic Win7 wizard layout.
+   Banner with deep-blue heading on a very pale background, white content
+   area, footer with right-aligned Back/Next/Cancel and a "Step X of Y"
+   indicator on the left.
+   ────────────────────────────────────────────────────────────────────── */
 
-  --text-primary: #000;
-  --text-secondary: #666;
-
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
-
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-geist-sans);
-  background-color: var(--background);
-}
-
-.main {
-  display: flex;
-  flex: 1;
+.stage {
   width: 100%;
-  max-width: 800px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  background-color: var(--foreground);
-  padding: 120px 60px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
 }
 
-.intro {
+.stage > :global(div) {
+  animation: windowIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center 60%;
+}
+
+@keyframes windowIn {
+  from { opacity: 0; transform: scale(0.88) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* The wizard fills the window's content area */
+.wizard {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 24px;
+  height: 100%;
+  background: white;
 }
 
-.intro h1 {
-  max-width: 320px;
-  font-size: 40px;
+/* ── Banner ────────────────────────────────────────────────────────── */
+.banner {
+  flex: 0 0 auto;
+  padding: 16px 24px 14px;
+  background:
+    linear-gradient(to bottom, #fdfeff 0%, #f3f7fc 100%);
+  border-bottom: 1px solid #cdd9e8;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.bannerTitle {
+  /* Classic Win7 wizard heading colour */
+  color: #003399;
+  font-family: var(--font-ui);
+  font-size: 16px;
   font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -2.4px;
-  text-wrap: balance;
-  color: var(--text-primary);
+  letter-spacing: 0.1px;
+  margin: 0;
+  line-height: 1.2;
 }
 
-.intro p {
-  max-width: 440px;
-  font-size: 18px;
-  line-height: 32px;
-  text-wrap: balance;
-  color: var(--text-secondary);
+.bannerSubtitle {
+  margin: 4px 0 0 12px;
+  font-size: 12px;
+  color: var(--text-on-glass);
+  line-height: 1.3;
 }
 
-.intro a {
-  font-weight: 500;
-  color: var(--text-primary);
+/* ── Content ───────────────────────────────────────────────────────── */
+.content {
+  flex: 1 1 auto;
+  padding: 18px 28px;
+  background: white;
+  overflow-y: auto;
 }
 
-.ctas {
+.stepBody {
   display: flex;
-  flex-direction: row;
-  width: 100%;
-  max-width: 440px;
-  gap: 16px;
-  font-size: 14px;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.ctas a {
+/* ── Form bits ─────────────────────────────────────────────────────── */
+.field {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 320px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  color: var(--text-on-glass);
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-top: 2px;
+  max-width: 440px;
+}
+
+/* ── Method options ───────────────────────────────────────────────── */
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.option + .option {
+  margin-top: 6px;
+}
+
+.optionHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-left: 19px;
+}
+
+.joinRow {
+  display: flex;
   align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 128px;
-  border: 1px solid transparent;
-  transition: 0.2s;
-  cursor: pointer;
-  width: fit-content;
-  font-weight: 500;
-}
-
-a.primary {
-  background: var(--text-primary);
-  color: var(--background);
   gap: 8px;
+  margin: 6px 0 0 19px;
+  max-width: 360px;
+  transition: opacity 160ms ease;
 }
 
-a.secondary {
-  border-color: var(--button-secondary-border);
+.joinRow.disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
-/* Enable hover only on non-touch devices */
-@media (hover: hover) and (pointer: fine) {
-  a.primary:hover {
-    background: var(--button-primary-hover);
-    border-color: transparent;
-  }
-
-  a.secondary:hover {
-    background: var(--button-secondary-hover);
-    border-color: transparent;
-  }
+.joinLabel {
+  font-size: 12px;
+  color: var(--text-on-glass);
+  white-space: nowrap;
 }
 
-@media (max-width: 600px) {
-  .main {
-    padding: 48px 24px;
-  }
-
-  .intro {
-    gap: 16px;
-  }
-
-  .intro h1 {
-    font-size: 32px;
-    line-height: 40px;
-    letter-spacing: -1.92px;
-  }
+/* ── Footer ────────────────────────────────────────────────────────── */
+.footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background:
+    linear-gradient(to bottom, #f0f3f7 0%, #dde3eb 100%);
+  border-top: 1px solid #b8c2d0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-@media (prefers-color-scheme: dark) {
-  .logo {
-    filter: invert();
-  }
+.stepIndicator {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+}
 
-  .page {
-    --background: #000;
-    --foreground: #000;
-
-    --text-primary: #ededed;
-    --text-secondary: #999;
-
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
-  }
+.flex {
+  flex: 1 1 auto;
 }
