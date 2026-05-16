@@ -4,6 +4,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import Window from "@/components/window/Window";
 import styles from "./Notepad.module.css";
 
+/* Controlled component: the parent owns `value` and gets `onChange`. Read-only
+   call sites can omit `onChange`. */
+
 /* Win7 Notepad icon — small white page with a few blue lines, matches
    what shipped with Windows 7's notepad.exe. */
 function NotepadIcon() {
@@ -50,7 +53,8 @@ function NotepadMenu() {
 
 export default function Notepad({
   fileName = "Untitled",
-  initialValue = "",
+  value = "",
+  onChange,
   placeholder,
   showStatusBar = true,
   readOnly = false,
@@ -60,7 +64,6 @@ export default function Notepad({
   height = 540,
 }) {
   const id = useId();
-  const [value, setValue] = useState(initialValue);
   const [cursor, setCursor] = useState({ ln: 1, col: 1 });
   const ref = useRef(null);
 
@@ -113,7 +116,7 @@ export default function Notepad({
           value={value}
           onChange={(e) => {
             if (readOnly) return;
-            setValue(e.target.value);
+            onChange?.(e.target.value);
             updateCursor(e.currentTarget);
           }}
           placeholder={placeholder}

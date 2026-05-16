@@ -133,7 +133,7 @@ export default function RevealPage() {
                   Original<strong>({originalSegment.authorName})</strong>
                 </span>
                 <CodeEditor
-                  initialCode={originalSegment.content}
+                  value={originalSegment.content}
                   language="python"
                   fileName="original"
                   readOnly
@@ -146,7 +146,7 @@ export default function RevealPage() {
                   Reconstructed<strong>({reconstructedSegment.authorName})</strong>
                 </span>
                 <CodeEditor
-                  initialCode={reconstructedSegment.content}
+                  value={reconstructedSegment.content}
                   language="python"
                   fileName="reconstructed"
                   readOnly

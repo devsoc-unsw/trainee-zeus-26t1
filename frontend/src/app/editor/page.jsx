@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
 import Button from "@/components/input/Button";
@@ -20,19 +21,24 @@ export default function EditorDemo() {
     submit,
   } = useRound();
 
-  // TODO: read the editor's current value to pass into submit().
-  //       CodeEditor manages its own state internally — wiring this
-  //       requires lifting state up via an onChange prop or imperative
-  //       handle. For the stub, submit("") is used as a placeholder.
-  const handleSubmit = () => {
-    submit("").catch((err) => console.error("[editor] submit failed:", err));
-  };
-
   const promptText = seed?.promptText ?? FALLBACK_PROMPT;
   const starterCode = seed?.starterLine ?? FALLBACK_STARTER;
   // TODO: language is NOT in the round protocol — picked at lobby creation
   //       in the UI but not yet on the wire. Hardcoded for now.
   const language = "python";
+
+  const [editorValue, setEditorValue] = useState(starterCode);
+
+  // Re-seed the editor when a new round arrives (starterCode changes).
+  useEffect(() => {
+    setEditorValue(starterCode);
+  }, [starterCode]);
+
+  const handleSubmit = () => {
+    submit(editorValue).catch((err) =>
+      console.error("[editor] submit failed:", err),
+    );
+  };
   const displayTimer =
     typeof secondsLeft === "number"
       ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
@@ -69,7 +75,8 @@ export default function EditorDemo() {
 
           <div className={styles.editorWrap}>
             <CodeEditor
-              initialCode={starterCode}
+              value={editorValue}
+              onChange={setEditorValue}
               language={language}
               fileName="solution"
               height={380}
