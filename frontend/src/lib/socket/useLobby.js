@@ -41,7 +41,6 @@ export function useLobby() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    setSnapshot(getSession());
     const unsub = subscribeLobby((next) => setSnapshot({ ...next }));
     const offErr = on("room:error", (data) => {
       setError({
