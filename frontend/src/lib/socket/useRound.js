@@ -35,6 +35,7 @@
  *   chains:         object[] | null,
  *   error:          { code: string, message: string } | null,
  *   submit:         (content: string) => Promise<void>,
+ *   reset:          () => Promise<void>,
  * }}
  */
 export function useRound() {
@@ -59,6 +60,10 @@ export function useRound() {
     chains: null,
     error: null,
     submit: async (_content) => {
+      throw new Error("not implemented");
+    },
+    reset: async () => {
+      // TODO: bind to `round.js:resetGame()` once the hook is implemented.
       throw new Error("not implemented");
     },
   };

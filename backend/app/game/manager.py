@@ -536,6 +536,25 @@ class GameHub:
             ]
         await self._broadcast(room, "game:reveal", payload)
 
+        # Persist game completion (best-effort, fire-and-forget).
+        game_id = new_id()
+        chain_score_rows = self._build_chain_score_rows(room, scores)
+        _persist_async(
+            game_repository.persist_game_completed,
+            game_id,
+            room.id,
+            room.round_count,
+            chain_score_rows,
+        )
+        if scores is not None:
+            elo_updates = self._compute_elo_updates_safe(room, scores)
+            if elo_updates:
+                _persist_async(
+                    game_repository.persist_elo_updates,
+                    game_id,
+                    elo_updates,
+                )
+
         async def _over_delayed() -> None:
             rid = room.id
             rc = room.round_count
@@ -572,6 +591,57 @@ class GameHub:
             return None
         except Exception:  # noqa: BLE001
             logger.warning("score_chain failed", exc_info=True)
+            return None
+
+    def _build_chain_score_rows(
+        self,
+        room: Room,
+        scores: list[ChainScore] | None,
+    ) -> list[dict[str, Any]] | None:
+        """Join ChainScore + start_player_id (from rotation_order) into
+        row dicts ready for game_scores. Returns None when scores is None
+        so the caller can skip the insert."""
+        if scores is None:
+            return None
+        n = len(room.rotation_order)
+        rows: list[dict[str, Any]] = []
+        for s in scores:
+            idx = s.chain_index
+            start_player_id = (
+                room.rotation_order[idx] if 0 <= idx < n else None
+            )
+            rows.append(
+                {
+                    "chain_index": idx,
+                    "start_player_id": start_player_id,
+                    "overall_score": s.overall_score,
+                    "notes": s.notes,
+                }
+            )
+        return rows
+
+    def _compute_elo_updates_safe(
+        self,
+        room: Room,
+        scores: list[ChainScore],
+    ) -> list[dict[str, Any]] | None:
+        """Compute ELO updates from current scores. Catches
+        NotImplementedError (stub state) and any runtime failure;
+        returns None on failure so the caller can skip the insert."""
+        try:
+            from app.game.elo import compute_elo_changes
+            # Build the input shape: one entry per chain-starting player
+            # who has a user_id. Anonymous players (no user_id) are skipped.
+            # NOTE: room.players uses ephemeral player_id, not user_id.
+            # Until users are wired, this loop produces an empty list,
+            # which compute_elo_changes treats as a no-op.
+            # TODO (teammate): when players have user_id, populate this list.
+            return compute_elo_changes([])
+        except NotImplementedError:
+            logger.info("compute_elo_changes not implemented; no ELO updates")
+            return None
+        except Exception:  # noqa: BLE001
+            logger.warning("compute_elo_changes failed", exc_info=True)
             return None
 
     def _chains_payload(self, room: Room) -> list[dict[str, Any]]:

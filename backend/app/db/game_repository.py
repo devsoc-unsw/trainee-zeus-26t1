@@ -162,3 +162,72 @@ def persist_room_state(
         sb.table("rooms").update(payload).eq("id", room_id).execute()
     except Exception:
         logger.warning("persist_room_state failed", exc_info=True)
+
+
+def persist_game_completed(
+    game_id: str,
+    room_id: str,
+    round_count: int,
+    chain_scores: list[dict[str, Any]] | None,
+) -> None:
+    """Insert one row into `games` and one row per chain into `game_scores`.
+
+    If `chain_scores` is None (AI scoring not yet implemented or failed),
+    the game row is still inserted with no `game_scores` rows — we know
+    the game finished even without scores.
+
+    `chain_scores` row shape (when not None):
+        {"chain_index": int, "start_player_id": str | None,
+         "overall_score": float, "notes": str | None}
+
+    Best-effort — never raises. See spec
+    docs/superpowers/specs/2026-05-16-elo-scoring-persistence-stubs.md.
+    """
+    sb = _client()
+    if not sb:
+        return
+    # TODO: implement
+    # - INSERT INTO games (id, room_id, round_count) VALUES (...)
+    # - if chain_scores: bulk INSERT INTO game_scores (...) for each row
+    # - consider an RPC for atomicity (audit notes recommend this)
+    logger.debug("persist_game_completed stub: %s", game_id)
+
+
+def persist_elo_updates(
+    game_id: str,
+    updates: list[dict[str, Any]],
+) -> None:
+    """Apply per-user ELO updates: update users.elo and append elo_history rows.
+
+    `updates` row shape:
+        {"user_id": str, "before": int, "after": int, "delta": int}
+
+    Best-effort — never raises.
+    """
+    sb = _client()
+    if not sb:
+        return
+    # TODO: implement
+    # - for each update: UPDATE users SET elo = after, games_played = games_played + 1
+    # - INSERT INTO elo_history (user_id, game_id, elo_before, elo_after, delta) VALUES (...)
+    # - prefer an RPC for atomicity
+    logger.debug("persist_elo_updates stub: %s updates for game %s", len(updates), game_id)
+
+
+def get_user_elo(user_id: str) -> int | None:
+    """Read current ELO from users.elo.
+
+    Returns None if the user is not found OR if the DB is unavailable.
+    Best-effort — never raises.
+    """
+    sb = _client()
+    if not sb:
+        return None
+    try:
+        # TODO: implement
+        # - SELECT elo FROM users WHERE id = user_id LIMIT 1
+        # - return row["elo"] if found, else None
+        return None
+    except Exception:  # noqa: BLE001
+        logger.warning("get_user_elo failed", exc_info=True)
+        return None

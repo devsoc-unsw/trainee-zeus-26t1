@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-16
 **Status:** Approved, ready for implementation
-**Scope:** Backend Python stubs for AI semantic scoring (Anthropic Claude) and code execution (Judge0), plus integration of the scoring call into the existing `_finish_game` flow.
+**Scope:** Backend Python stubs for AI semantic scoring (Gemini free tier) and code execution (Judge0), plus integration of the scoring call into the existing `_finish_game` flow.
 
 **Related:** Subsystem #2 of the "game logic stubs" series. Subsystem #1 (frontend round networking) is complete. Subsystems #3 (ELO/persistence) and #4 (reveal screen) follow.
 
@@ -20,7 +20,7 @@ Define the public surface and integration point for two future services: an AI j
 - `game:reveal` payload contract change: now `{chains, scores?}` instead of `{chains}`
 
 **Out (deferred):**
-- The actual Anthropic API integration
+- The actual Gemini API integration
 - The actual Judge0 HTTP integration
 - API key management / env vars
 - Caching, rate limiting, retries
@@ -35,11 +35,11 @@ backend/app/game/
 ├── room.py             ← (existing — unchanged)
 ├── schemas.py          ← (existing — add ChainScore, TestCase, TestResult)
 ├── prompts.py          ← (existing — unchanged)
-├── scoring.py          ← NEW: score_chain() — Anthropic Claude API
+├── scoring.py          ← NEW: score_chain() — Gemini free tier (2.5 Flash)
 └── code_execution.py   ← NEW: run_code() — Judge0 API
 ```
 
-Two separate files because the services have different external dependencies (Anthropic SDK vs. Judge0 HTTP) and will likely be implemented by different teammates.
+Two separate files because the services have different external dependencies (Gemini SDK vs. Judge0 HTTP) and will likely be implemented by different teammates.
 
 ## Public Surface
 
@@ -53,9 +53,14 @@ async def score_chain(chains: list[dict[str, Any]]) -> list[ChainScore]:
     reconstructed code (the last `code` segment) and returns a 0.0-1.0
     similarity score with optional rationale.
 
-    The implementer is expected to call the Anthropic Claude API and
-    parse a structured response. See `docs/project-briefing.md` for the
+    The implementer is expected to call the Gemini API (free tier,
+    `gemini-2.5-flash`, structured output via `response_schema`) and
+    parse the JSON response. See `docs/project-briefing.md` for the
     stretch-goal description of the semantic-similarity judging.
+
+    Cost policy: free tier only — never enable billing. When quotas
+    exhaust, exceptions bubble up to `_score_chains_safe` and the
+    reveal proceeds without scores until the quota resets.
 
     Raises NotImplementedError until the teammate fills in the body.
     """
@@ -160,7 +165,7 @@ async def _score_chains_safe(
 - The reveal still works without scoring (frontend treats `scores` as optional).
 - When the teammate implements `score_chain`, scores appear automatically.
 - Any failure in scoring (network, API key missing, exception) is caught and logged; the game-flow continues.
-- The lazy `import` inside the helper means missing Anthropic SDK won't crash module load.
+- The lazy `import` inside the helper means missing Gemini SDK won't crash module load.
 
 ## Protocol Change
 
@@ -181,7 +186,7 @@ When they open `scoring.py`, they should be able to:
 2. Read the input shape (`chains` is the camelCase JSON output of `_chains_payload`).
 3. Read the output shape (`list[ChainScore]`).
 4. Decide how to build the Claude API prompt and parse its response.
-5. Add env-var config (`ANTHROPIC_API_KEY`) and SDK dependency.
+5. Add env-var config (`GEMINI_API_KEY` — get one at https://aistudio.google.com/apikey, no billing required) and the `google-genai` SDK to `backend/requirements.txt`.
 6. Implement, write tests in `backend/tests/test_scoring.py`, and submit a PR.
 
 Same structure for `code_execution.py` — input/output shapes are clear; they decide on Judge0 endpoint config (`JUDGE0_API_URL`, `JUDGE0_API_KEY`) and request format.
