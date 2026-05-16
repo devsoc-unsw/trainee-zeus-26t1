@@ -117,6 +117,39 @@ class RoundSubmitPayload(BaseModel):
     content: str
 
 
+# --- Scoring & code execution payloads ---
+
+
+class ChainScore(BaseModel):
+    """Per-chain semantic-similarity score returned by the AI judge."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    chain_index: int = Field(alias="chainIndex")
+    overall_score: float = Field(alias="overallScore")
+    notes: str | None = None
+
+
+class TestCase(BaseModel):
+    """A single Judge0 test input/expected-output pair."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    stdin: str
+    expected_stdout: str = Field(alias="expectedStdout")
+
+
+class TestResult(BaseModel):
+    """Outcome of running a single test case through Judge0."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    passed: bool
+    actual_stdout: str = Field(alias="actualStdout")
+    runtime_ms: int | None = Field(default=None, alias="runtimeMs")
+    error: str | None = None
+
+
 def outbound_event(event: str, data: dict[str, Any]) -> dict[str, Any]:
     """Wire format: camelCase keys in JSON objects."""
     return {"event": event, "data": data}

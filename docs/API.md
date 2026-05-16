@@ -71,7 +71,7 @@ No request body or query parameters. Used for liveness checks.
 | `round:begin` | Start of a round; **per-connection** payload includes `seed` (prompt / inherited content) and timing hints. |
 | `round:player_submitted` | Progress broadcast when a player submits (counts toward round completion). |
 | `round:ended` | Round finished (all in or timeout); includes `submissions` and optional `nextRound`. |
-| `game:reveal` | Final **chains** for the completed game. |
+| `game:reveal` | Final **chains** for the completed game. May include optional **scores** (per-chain semantic-similarity, populated once AI judging is wired up — see `backend/app/game/scoring.py`). |
 | `game:over` | Emitted after a short delay following reveal. |
 | `game:state` | Snapshot for reconnect (`game:sync`): status, round, timer, seed, submitted flag, players. |
 

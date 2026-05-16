@@ -24,6 +24,7 @@ from app.game.room import (
     round_type_for_num,
 )
 from app.game.schemas import (
+    ChainScore,
     GameSyncPayload,
     RoomCreatePayload,
     RoomJoinPayload,
@@ -527,7 +528,13 @@ class GameHub:
 
     async def _finish_game(self, room: Room) -> None:
         chains = self._chains_payload(room)
-        await self._broadcast(room, "game:reveal", {"chains": chains})
+        scores = await self._score_chains_safe(chains)
+        payload: dict[str, Any] = {"chains": chains}
+        if scores is not None:
+            payload["scores"] = [
+                s.model_dump(mode="json", by_alias=True) for s in scores
+            ]
+        await self._broadcast(room, "game:reveal", payload)
 
         async def _over_delayed() -> None:
             rid = room.id
@@ -547,6 +554,25 @@ class GameHub:
             if room.over_task:
                 room.over_task.cancel()
             room.over_task = asyncio.create_task(_over_delayed())
+
+    async def _score_chains_safe(
+        self, chains: list[dict[str, Any]]
+    ) -> list[ChainScore] | None:
+        """Best-effort scoring — never blocks the reveal.
+
+        Lazy-imports `scoring` so a missing Anthropic SDK doesn't crash
+        the hub on module load. Catches NotImplementedError (stub state)
+        and any runtime failure; logs and returns None.
+        """
+        try:
+            from app.game.scoring import score_chain
+            return await score_chain(chains)
+        except NotImplementedError:
+            logger.info("score_chain not implemented; reveal has no scores")
+            return None
+        except Exception:  # noqa: BLE001
+            logger.warning("score_chain failed", exc_info=True)
+            return None
 
     def _chains_payload(self, room: Room) -> list[dict[str, Any]]:
         n = len(room.rotation_order)

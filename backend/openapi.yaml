@@ -15,6 +15,9 @@ info:
     `game:started`, `round:begin`, `round:player_submitted`, `round:ended`, `game:reveal`,
     `game:over`, `game:state`.
 
+    The `game:reveal` payload contains `chains` (required) and may include `scores`
+    (optional — populated once AI judging is implemented).
+
     See `x-websocket` for path and envelope details.
 servers:
   - url: http://localhost:8000
