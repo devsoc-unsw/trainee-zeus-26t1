@@ -1,26 +1,48 @@
+"use client";
+
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
 import Button from "@/components/input/Button";
 import styles from "./page.module.css";
+import { useRound } from "@/lib/socket/useRound";
 
-const PROMPT = `Write a function that takes a list of integers and a target sum, and returns the indices of two numbers that add up to the target. Assume exactly one solution exists.`;
-
-const STARTER_CODE = `def two_sum(nums, target):
-    # Your code here
-    seen = {}
-    for i, x in enumerate(nums):
-        complement = target - x
-        if complement in seen:
-            return [seen[complement], i]
-        seen[x] = i
-    return None
-`;
+const FALLBACK_PROMPT = "Waiting for prompt…";
+const FALLBACK_STARTER = "# write your solution here\n";
 
 export default function EditorDemo() {
+  const {
+    roundNum,
+    seed,
+    secondsLeft,
+    submittedCount,
+    totalPlayers,
+    hasSubmitted,
+    submit,
+  } = useRound();
+
+  // TODO: read the editor's current value to pass into submit().
+  //       CodeEditor manages its own state internally — wiring this
+  //       requires lifting state up via an onChange prop or imperative
+  //       handle. For the stub, submit("") is used as a placeholder.
+  const handleSubmit = () => {
+    submit("").catch((err) => console.error("[editor] submit failed:", err));
+  };
+
+  const promptText = seed?.promptText ?? FALLBACK_PROMPT;
+  const starterCode = seed?.starterLine ?? FALLBACK_STARTER;
+  // TODO: language is NOT in the round protocol — picked at lobby creation
+  //       in the UI but not yet on the wire. Hardcoded for now.
+  const language = "python";
+  const displayTimer =
+    typeof secondsLeft === "number"
+      ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
+      : "—:—";
+  const readyCount = `${submittedCount} of ${totalPlayers || "—"} submitted`;
+
   return (
     <div className={styles.stage}>
       <Window
-        title="Code Telephone — Round 1 — Write Phase"
+        title={`Code Telephone — Round ${roundNum ?? "—"} — Write Phase`}
         width={920}
         menubar={
           <div className={styles.menu}>
@@ -36,20 +58,20 @@ export default function EditorDemo() {
             </div>
             <div className={styles.timer}>
               <span className={styles.timerLabel}>Time left</span>
-              <span className={styles.timerValue}>2:34</span>
+              <span className={styles.timerValue}>{displayTimer}</span>
             </div>
           </header>
 
           <section className={styles.prompt}>
             <div className={styles.promptLabel}>Prompt</div>
-            <p className={styles.promptText}>{PROMPT}</p>
+            <p className={styles.promptText}>{promptText}</p>
           </section>
 
           <div className={styles.editorWrap}>
             <CodeEditor
-              initialCode={STARTER_CODE}
-              language="python"
-              fileName="two_sum"
+              initialCode={starterCode}
+              language={language}
+              fileName="solution"
               height={380}
             />
           </div>
@@ -57,8 +79,10 @@ export default function EditorDemo() {
           <footer className={styles.actions}>
             <Button>Skip</Button>
             <span className={styles.flex} />
-            <span className={styles.readyCount}>1 of 4 submitted</span>
-            <Button variant="primary">Submit</Button>
+            <span className={styles.readyCount}>{readyCount}</span>
+            <Button variant="primary" disabled={hasSubmitted} onClick={handleSubmit}>
+              Submit
+            </Button>
           </footer>
         </div>
       </Window>

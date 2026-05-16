@@ -1,39 +1,61 @@
+"use client";
+
 import Notepad from "@/components/notepad/Notepad";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
 import PhaseHUD from "@/components/game/PhaseHUD";
 import styles from "./page.module.css";
+import { useRound } from "@/lib/socket/useRound";
 
-/* What Player B (the describer) actually wrote, after staring at the
-   obfuscated `def f(a, t)`. Slightly imprecise on purpose — that ambiguity
-   is what makes the Telephone chain produce interesting reconstructions. */
-const RECEIVED_DESCRIPTION = `Looks for two numbers in the input list that sum to a given target.
-
-It uses a dictionary to keep track of which numbers we've already looked at and their positions. As it walks through the list, it checks whether the number we'd need to reach the target has already been seen — if yes, return where the matching pair lives in the list.
-
-Nothing found = nothing returned.`;
-
-/* Fresh editor — Player C hasn't started yet. The blank slate invites typing. */
-const STARTER_CODE = `# write code here
-`;
+const FALLBACK_DESCRIPTION = "Waiting for the previous player's description…";
 
 export default function ReimplementDemo() {
+  const {
+    seed,
+    secondsLeft,
+    submittedCount,
+    totalPlayers,
+    hasSubmitted,
+    submit,
+  } = useRound();
+
+  // TODO: read the CodeEditor's current value to pass to submit().
+  //       CodeEditor manages its own state internally; placeholder used.
+  const handleSubmit = () => {
+    submit("").catch((err) => console.error("[reimplement] submit failed:", err));
+  };
+
+  const receivedDescription = seed?.receivedContent ?? FALLBACK_DESCRIPTION;
+  const starterCode = ""; // No starter line on rounds > 1 — server sends none.
+  // TODO: language is NOT in the round protocol — see editor/page.jsx.
+  const language = "python";
+  const displayTimer =
+    typeof secondsLeft === "number"
+      ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
+      : "—:—";
+  const readyCount = `${submittedCount} of ${totalPlayers || "—"} submitted`;
+
   return (
     <div className={styles.stage}>
       <PhaseHUD
         phaseIndex={3}
         phaseTotal={4}
         title="Re-implement the function"
-        timer="2:08"
-        readyCount="0 of 4 submitted"
+        timer={displayTimer}
+        readyCount={readyCount}
         submitLabel="Submit code"
+        onSubmit={handleSubmit}
       />
+
+      {/* TODO: PhaseHUD does not currently accept a disabled prop. When wiring
+          real submit, add `disabled` to PhaseHUD's submit button and pass
+          `disabled={hasSubmitted}` here. */}
 
       {/* Left: the description (read-only Notepad). */}
       <div className={styles.descWindow}>
         <Notepad
           fileName="received"
-          initialValue={RECEIVED_DESCRIPTION}
+          initialValue={receivedDescription}
           readOnly
           x={56}
           y={88}
@@ -52,8 +74,8 @@ export default function ReimplementDemo() {
           height={460}
         >
           <CodeEditor
-            initialCode={STARTER_CODE}
-            language="python"
+            initialCode={starterCode}
+            language={language}
             fileName="solution"
             height={428}
             showStatusBar

@@ -1,36 +1,56 @@
+"use client";
+
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
 import Notepad from "@/components/notepad/Notepad";
 import PhaseHUD from "@/components/game/PhaseHUD";
 import styles from "./page.module.css";
+import { useRound } from "@/lib/socket/useRound";
 
-/* The "obfuscated" two_sum — same logic Player A wrote, but Player B now
-   sees it stripped of meaningful names. They have to infer the intent. */
-const RECEIVED_CODE = `def f(a, t):
-    s = {}
-    for i, x in enumerate(a):
-        c = t - x
-        if c in s:
-            return [s[c], i]
-        s[x] = i
-    return None
-`;
-
-const NOTEPAD_PLACEHOLDER = `In a sentence or two, describe what this function does.
-
-The clearer your description, the more accurate the next player's reconstruction will be — but you can also describe it badly on purpose.`;
+const FALLBACK_CODE = "# waiting for the previous player's code…\n";
+const NOTEPAD_PLACEHOLDER = "Describe what this function does in plain English.";
 
 export default function DescribeDemo() {
+  const {
+    seed,
+    secondsLeft,
+    submittedCount,
+    totalPlayers,
+    hasSubmitted,
+    submit,
+  } = useRound();
+
+  // TODO: read the Notepad's current value to pass to submit().
+  //       Notepad manages its own state internally; wiring requires
+  //       lifting state up. Placeholder for the stub.
+  const handleSubmit = () => {
+    submit("").catch((err) => console.error("[describe] submit failed:", err));
+  };
+
+  const receivedCode = seed?.receivedContent ?? FALLBACK_CODE;
+  // TODO: language is NOT in the round protocol — see editor/page.jsx.
+  const language = "python";
+  const displayTimer =
+    typeof secondsLeft === "number"
+      ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
+      : "—:—";
+  const readyCount = `${submittedCount} of ${totalPlayers || "—"} submitted`;
+
   return (
     <div className={styles.stage}>
       <PhaseHUD
         phaseIndex={2}
         phaseTotal={4}
         title="Describe the function"
-        timer="1:47"
-        readyCount="2 of 4 submitted"
+        timer={displayTimer}
+        readyCount={readyCount}
         submitLabel="Submit description"
+        onSubmit={handleSubmit}
       />
+
+      {/* TODO: PhaseHUD does not currently accept a disabled prop. When wiring
+          real submit, add `disabled` to PhaseHUD's submit button and pass
+          `disabled={hasSubmitted}` here. */}
 
       {/* Left: the received code, in our IDE (read-only) */}
       <div className={styles.codeWindow}>
@@ -42,8 +62,8 @@ export default function DescribeDemo() {
           height={460}
         >
           <CodeEditor
-            initialCode={RECEIVED_CODE}
-            language="python"
+            initialCode={receivedCode}
+            language={language}
             fileName="mystery"
             readOnly
             height={428}
