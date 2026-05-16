@@ -21,6 +21,7 @@ const INITIAL = {
   submittedCount: 0,
   totalPlayers: 0,
   chains: null,
+  scores: null,
   error: null,
 };
 
@@ -44,6 +45,7 @@ const INITIAL = {
  *   submittedCount: number,
  *   totalPlayers:   number,
  *   chains:         object[] | null,
+ *   scores:         object[] | null,
  *   error:          { code: string, message: string } | null,
  *   submit:         (content: string) => Promise<void>,
  *   reset:          () => Promise<void>,
@@ -69,6 +71,7 @@ export function useRound() {
         hasSubmitted: false,
         submittedCount: 0,
         chains: null,
+        scores: null,
         error: null,
       }));
     });
@@ -98,6 +101,7 @@ export function useRound() {
         ...prev,
         status: "reveal",
         chains: Array.isArray(data?.chains) ? data.chains : null,
+        scores: Array.isArray(data?.scores) ? data.scores : null,
         secondsLeft: null,
       }));
     });

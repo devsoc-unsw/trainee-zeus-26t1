@@ -1,0 +1,91 @@
+/* Floating Win7-style balloon notification.
+   Pinned bottom-right. The Superbar is 40px tall (z-index: 1000) and
+   pinned to the viewport bottom; `bottom: 64px` here = 40px Superbar
+   + 24px gap. z-index: 10000 keeps the toast above every window. */
+
+.toastWrap {
+  position: fixed;
+  bottom: 64px;
+  right: 16px;
+  z-index: 10000;
+  pointer-events: none;
+  animation: toastIn 180ms ease-out;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 280px;
+  max-width: 420px;
+  padding: 10px 12px;
+  pointer-events: auto;
+  font-family: var(--font-ui);
+  color: var(--text-on-glass);
+}
+
+.iconBox {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  background: var(--close-btn);
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--fs-section);
+  line-height: 1;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.message {
+  font-size: var(--fs-chrome);
+  color: var(--text-muted);
+  word-wrap: break-word;
+}
+
+.dismiss {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-on-glass);
+  font-size: var(--fs-section);
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 0;
+}
+
+.dismiss:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
