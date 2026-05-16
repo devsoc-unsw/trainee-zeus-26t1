@@ -7,7 +7,17 @@
 let socket = null;
 let currentStatus = "idle";
 let connectingPromise = null;
-const handlers = new Map();
+let connectingReject = null;
+
+// Persist the inbound-event handler map on globalThis so Next.js Fast
+// Refresh re-evaluating this module does not lose handlers attached by
+// other modules (e.g. lobby.js) that may NOT have re-evaluated this turn.
+// Bump the version suffix when the handler protocol changes incompatibly.
+const HANDLERS_KEY = "__zeus_socket_handlers_v1";
+if (!globalThis[HANDLERS_KEY]) {
+  globalThis[HANDLERS_KEY] = new Map();
+}
+const handlers = globalThis[HANDLERS_KEY];
 
 function notify(event, data) {
   const list = handlers.get(event);
@@ -44,10 +54,12 @@ export async function connect(url) {
   socket = ws;
 
   connectingPromise = new Promise((resolve, reject) => {
+    connectingReject = reject;
     const onOpen = () => {
       ws.removeEventListener("open", onOpen);
       ws.removeEventListener("error", onErrorEarly);
       currentStatus = "open";
+      connectingReject = null;
       resolve();
     };
     const onErrorEarly = () => {
@@ -56,6 +68,7 @@ export async function connect(url) {
       currentStatus = "closed";
       if (socket === ws) socket = null;
       connectingPromise = null;
+      connectingReject = null;
       reject(new Error(`WebSocket connection to ${url} failed`));
     };
     ws.addEventListener("open", onOpen);
@@ -127,6 +140,10 @@ export function on(event, handler) {
  * Close the socket and clear all registered handlers.
  */
 export function disconnect() {
+  if (connectingReject) {
+    connectingReject(new Error("WebSocket disconnect() called before connect resolved"));
+    connectingReject = null;
+  }
   handlers.clear();
   if (socket) {
     try {

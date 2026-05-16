@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { on } from "./client";
 import { resetGame, submitRound } from "./round";
 
@@ -116,6 +116,14 @@ export function useRound() {
       }));
     });
 
+    const offRoomUpdated = on("room:updated", () => {
+      setState((prev) =>
+        prev.status === "over" || prev.status === "reveal"
+          ? { ...INITIAL }
+          : prev,
+      );
+    });
+
     return () => {
       offBegin();
       offSubmitted();
@@ -123,10 +131,12 @@ export function useRound() {
       offReveal();
       offOver();
       offError();
+      offRoomUpdated();
     };
   }, []);
 
   useEffect(() => {
+    if (state.secondsLeft == null) return undefined;
     const id = setInterval(() => {
       if (deadlineRef.current == null) return;
       const remaining = Math.max(
@@ -140,18 +150,18 @@ export function useRound() {
       );
     }, 250);
     return () => clearInterval(id);
-  }, []);
+  }, [state.secondsLeft == null]);
 
-  const submit = async (content) => {
+  const submit = useCallback(async (content) => {
     await submitRound(content);
     setState((prev) => ({ ...prev, hasSubmitted: true }));
-  };
+  }, []);
 
-  const reset = async () => {
+  const reset = useCallback(async () => {
     await resetGame();
     deadlineRef.current = null;
-    setState(INITIAL);
-  };
+    setState({ ...INITIAL });
+  }, []);
 
   return { ...state, submit, reset };
 }

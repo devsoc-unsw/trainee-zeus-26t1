@@ -1,62 +1,89 @@
 // frontend/src/lib/socket/lobby.js
 //
-// Imperative one-shot lobby actions. Used by the home wizard to fire
-// create / join before navigating to /waiting-room.
+// Imperative one-shot lobby actions + module-level session store.
+// Used by the home wizard to fire create / join before navigating to
+// /waiting-room.
 //
 // Each action sends one event and awaits the matching server reply
 // (or rejects on `room:error`). See docs/API.md for the protocol.
 
 import { connect, on, send } from "./client";
 
-let lobbyState = {
+// Persist the lobby store on globalThis so Next.js Fast Refresh re-
+// evaluating this module does NOT stack duplicate WebSocket handlers
+// in client.js. The handler closures below capture `store.state`,
+// which lives on globalThis and therefore survives module re-eval.
+const STORE_KEY = "__zeus_lobby_store_v1";
+const INITIAL_STATE = {
   code: null,
   roomId: null,
   playerId: null,
   hostId: null,
   roundCount: null,
   players: [],
+  gameStarted: false,
 };
 
-const subscribers = new Set();
+if (!globalThis[STORE_KEY]) {
+  globalThis[STORE_KEY] = {
+    state: { ...INITIAL_STATE },
+    subscribers: new Set(),
+    attached: false,
+  };
+}
+const store = globalThis[STORE_KEY];
 
 function setLobby(patch) {
-  lobbyState = { ...lobbyState, ...patch };
-  for (const fn of [...subscribers]) {
+  store.state = { ...store.state, ...patch };
+  for (const fn of [...store.subscribers]) {
     try {
-      fn(lobbyState);
+      fn(store.state);
     } catch (err) {
       console.error("[lobby] subscriber threw:", err);
     }
   }
 }
 
-on("room:created", (data) => {
-  setLobby({
-    code: data?.code ?? null,
-    roomId: data?.roomId ?? null,
-    playerId: data?.playerId ?? null,
-    hostId: data?.playerId ?? null,
-    players: data?.players ?? [],
-  });
-});
+function attachHandlersOnce() {
+  if (store.attached) return;
+  store.attached = true;
 
-on("room:joined", (data) => {
-  setLobby({
-    code: data?.code ?? null,
-    roomId: data?.roomId ?? null,
-    playerId: data?.playerId ?? null,
-    hostId: data?.hostId ?? null,
-    roundCount: data?.roundCount ?? null,
-    players: data?.players ?? [],
+  on("room:created", (data) => {
+    setLobby({
+      code: data?.code ?? null,
+      roomId: data?.roomId ?? null,
+      playerId: data?.playerId ?? null,
+      hostId: data?.playerId ?? null,
+      players: data?.players ?? [],
+      gameStarted: false,
+    });
   });
-});
 
-on("room:updated", (data) => {
-  setLobby({
-    hostId: data?.hostId ?? lobbyState.hostId,
-    players: data?.players ?? [],
+  on("room:joined", (data) => {
+    setLobby({
+      code: data?.code ?? null,
+      roomId: data?.roomId ?? null,
+      playerId: data?.playerId ?? null,
+      hostId: data?.hostId ?? null,
+      roundCount: data?.roundCount ?? null,
+      players: data?.players ?? [],
+      gameStarted: false,
+    });
   });
-});
+
+  on("room:updated", (data) => {
+    setLobby({
+      hostId: data?.hostId ?? store.state.hostId,
+      players: data?.players ?? store.state.players,
+    });
+  });
+
+  on("game:started", () => {
+    setLobby({ gameStarted: true });
+  });
+}
+
+attachHandlersOnce();
 
 function wsUrl() {
   const base =
@@ -67,7 +94,7 @@ function wsUrl() {
   return base.replace(/^http/, "ws") + "/ws/game";
 }
 
-async function ensureConnected() {
+export async function ensureConnected() {
   await connect(wsUrl());
 }
 
@@ -104,7 +131,7 @@ export async function createRoom(name, roundCount) {
   const reply = awaitOne("room:created", "room:error");
   send("room:create", { name, roundCount });
   const data = await reply;
-  setLobby({ roundCount });
+  setLobby({ roundCount, gameStarted: false });
   return data;
 }
 
@@ -129,14 +156,7 @@ export async function joinRoom(code, name) {
  */
 export async function leaveRoom() {
   send("room:leave", {});
-  setLobby({
-    code: null,
-    roomId: null,
-    playerId: null,
-    hostId: null,
-    roundCount: null,
-    players: [],
-  });
+  setLobby({ ...INITIAL_STATE });
 }
 
 /**
@@ -152,10 +172,10 @@ export async function startGame() {
 }
 
 export function getSession() {
-  return lobbyState;
+  return store.state;
 }
 
 export function subscribeLobby(fn) {
-  subscribers.add(fn);
-  return () => subscribers.delete(fn);
+  store.subscribers.add(fn);
+  return () => store.subscribers.delete(fn);
 }

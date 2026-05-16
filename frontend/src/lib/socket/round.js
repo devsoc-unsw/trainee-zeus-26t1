@@ -8,7 +8,7 @@
 // See docs/API.md for the protocol.
 
 import { on, send } from "./client";
-import { getSession } from "./lobby";
+import { ensureConnected, getSession } from "./lobby";
 
 function awaitOne(eventOk, eventErr, predicate) {
   return new Promise((resolve, reject) => {
@@ -42,10 +42,12 @@ function awaitOne(eventOk, eventErr, predicate) {
  */
 export async function submitRound(content) {
   const session = getSession();
+  if (!session.playerId) throw new Error("not in a room");
+  await ensureConnected();
   const reply = awaitOne(
     "round:player_submitted",
     "room:error",
-    (data) => !session.playerId || data?.playerId === session.playerId,
+    (data) => data?.playerId === session.playerId,
   );
   send("round:submit", { content });
   await reply;
@@ -73,6 +75,7 @@ export async function submitRound(content) {
  * }>}
  */
 export async function syncGame(roomId, playerId) {
+  await ensureConnected();
   const reply = awaitOne("game:state", "room:error");
   send("game:sync", { roomId, playerId });
   return reply;
@@ -86,6 +89,7 @@ export async function syncGame(roomId, playerId) {
  * @returns {Promise<void>}
  */
 export async function resetGame() {
+  await ensureConnected();
   const reply = awaitOne("room:updated", "room:error");
   send("game:reset", {});
   await reply;

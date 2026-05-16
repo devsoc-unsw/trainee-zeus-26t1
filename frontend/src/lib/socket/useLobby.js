@@ -32,6 +32,7 @@ function mapPlayers(players, hostId) {
  *   players:  Array<{id: string, name: string, ready: boolean, host: boolean}>,
  *   error:    {code: string, message: string} | null,
  *   isHost:   boolean,
+ *   gameStarted: boolean,
  *   leave:    () => Promise<void>,
  *   start:    () => Promise<void>,
  * }}
@@ -65,6 +66,7 @@ export function useLobby() {
     players: mapPlayers(snapshot.players, snapshot.hostId),
     error,
     isHost,
+    gameStarted: !!snapshot.gameStarted,
     leave: leaveRoom,
     start: startGame,
   };

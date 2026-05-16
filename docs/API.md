@@ -68,8 +68,8 @@ No request body or query parameters. Used for liveness checks.
 | `room:updated` | Broadcast when membership or host changes (public player list + `hostId`). |
 | `room:error` | Error with `code` and `message` (e.g. validation, not host, game in progress). |
 | `game:started` | Game is active; includes `roundCount` and `timeLimits`. |
-| `round:begin` | Start of a round; **per-connection** payload includes `seed` (prompt / inherited content) and timing hints. |
-| `round:player_submitted` | Progress broadcast when a player submits (counts toward round completion). |
+| `round:begin` | Start of a round; **per-connection** payload `{roundNum, roundType, seed, timeLimit}` — `seed` carries the prompt / inherited content; `timeLimit` is the round duration in seconds (the frontend derives a local `secondsLeft` countdown from it). |
+| `round:player_submitted` | Progress broadcast when a player submits. Payload `{playerId, totalSubmitted, totalPlayers}` — counts toward round completion. |
 | `round:ended` | Round finished (all in or timeout); includes `submissions` and optional `nextRound`. |
 | `game:reveal` | Final **chains** for the completed game. May include optional **scores** (per-chain semantic-similarity, populated once AI judging is wired up — see `backend/app/game/scoring.py`). |
 | `game:over` | Emitted after a short delay following reveal. |
