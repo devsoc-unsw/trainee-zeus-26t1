@@ -12,8 +12,8 @@ export default function ErrorToast() {
   const { error: lobbyError } = useLobby();
   const { error: roundError } = useRound();
 
-  // Single-slot toast. Latest error wins. `id` is the arrival timestamp,
-  // mostly kept for future debug/telemetry.
+  // Single-slot toast. Latest error wins. Object identity of `shown`
+  // changes per setShown, which is what the auto-dismiss effect keys on.
   const [shown, setShown] = useState(null);
 
   // React's "compare-in-render" pattern (https://react.dev/learn/you-might-
@@ -21,20 +21,21 @@ export default function ErrorToast() {
   // detect changes during render and call setShown without triggering the
   // react-hooks/set-state-in-effect rule. When both hooks change in the
   // same render, the round assignment runs last and wins — same precedence
-  // as the original effect-based version.
+  // as the original effect-based version. We avoid Date.now() here because
+  // it is impure and would trip react-hooks/purity.
   const [lastLobbyError, setLastLobbyError] = useState(null);
   const [lastRoundError, setLastRoundError] = useState(null);
 
   if (lobbyError !== lastLobbyError) {
     setLastLobbyError(lobbyError);
     if (lobbyError) {
-      setShown({ ...lobbyError, source: "lobby", id: Date.now() });
+      setShown({ ...lobbyError, source: "lobby" });
     }
   }
   if (roundError !== lastRoundError) {
     setLastRoundError(roundError);
     if (roundError) {
-      setShown({ ...roundError, source: "round", id: Date.now() });
+      setShown({ ...roundError, source: "round" });
     }
   }
 
