@@ -112,7 +112,7 @@ export async function resetGame() { /* TODO */ }
  *                     fromPlayerName?: string | null, // rounds > 1
  *                     receivedContent?: string | null,// rounds > 1
  *                   } | null,
- *   secondsLeft:    number | null,         // for the countdown display
+ *   secondsLeft:    number | null,         // derived locally from `timeLimit` via an interval — not read from the wire
  *   hasSubmitted:   boolean,
  *   submittedCount: number,                // players who've submitted this round
  *   totalPlayers:   number,
@@ -178,8 +178,8 @@ From `docs/API.md` and `backend/app/game/manager.py`. Stubs cover the round-phas
 
 | Event | Payload |
 |---|---|
-| `round:begin` | `{roundNum, roundType, seed, secondsLeft}` — per-connection (each player's seed is different). `roundType` is `'code'` or `'describe'`; `seed` contains the camelCase RoundSeed payload (`promptText`/`starterLine` on round 1, `fromPlayerName`/`receivedContent` on later rounds). |
-| `round:player_submitted` | `{playerId, submittedCount, totalPlayers}` |
+| `round:begin` | `{roundNum, roundType, seed, timeLimit}` — per-connection (each player's seed is different). `roundType` is `'code'` or `'describe'`; `seed` contains the camelCase RoundSeed payload (`promptText`/`starterLine` on round 1, `fromPlayerName`/`receivedContent` on later rounds). `timeLimit` is the round duration in seconds — the frontend derives a local `secondsLeft` countdown from it. |
+| `round:player_submitted` | `{playerId, totalSubmitted, totalPlayers}` |
 | `round:ended` | `{submissions, nextRound?}` |
 | `game:reveal` | `{chains}` |
 | `game:over` | `{}` |

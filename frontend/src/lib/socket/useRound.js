@@ -4,9 +4,25 @@
 // to the singleton client.js, listens for `round:begin`,
 // `round:player_submitted`, `round:ended`, `game:reveal`, `game:over`,
 // `room:error`.
-//
-// Stub: returns the default empty shape so pages render. The bound
-// `submit` method throws on invocation until implemented.
+
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { on } from "./client";
+import { resetGame, submitRound } from "./round";
+
+const INITIAL = {
+  status: "idle",
+  roundNum: null,
+  roundType: null,
+  seed: null,
+  secondsLeft: null,
+  hasSubmitted: false,
+  submittedCount: 0,
+  totalPlayers: 0,
+  chains: null,
+  error: null,
+};
 
 /**
  * Subscribe to round state. The page that renders for the current round
@@ -14,19 +30,14 @@
  * `status === "reveal"`.
  *
  * @returns {{
- *   // "reveal" and "idle" are client-only states.
- *   // The server's GameStatus is "lobby" | "active" | "over".
  *   status:         "idle" | "lobby" | "active" | "reveal" | "over",
  *   roundNum:       number | null,
- *   // roundType from the server is "code" | "describe" only.
- *   // The frontend uses (roundNum, roundType) together to decide
- *   // which round page renders (editor / describe / reimplement).
  *   roundType:      "code" | "describe" | null,
  *   seed:           {
- *                     promptText?: string | null,    // round 1 only
- *                     starterLine?: string | null,    // round 1 only
- *                     fromPlayerName?: string | null, // rounds > 1
- *                     receivedContent?: string | null,// rounds > 1 — previous player's submission
+ *                     promptText?: string | null,
+ *                     starterLine?: string | null,
+ *                     fromPlayerName?: string | null,
+ *                     receivedContent?: string | null,
  *                   } | null,
  *   secondsLeft:    number | null,
  *   hasSubmitted:   boolean,
@@ -39,32 +50,118 @@
  * }}
  */
 export function useRound() {
-  // TODO: implement
-  // - subscribe to client.on("round:begin", ...) etc. via useEffect
-  // - hold reactive state with useState or useSyncExternalStore
-  // - drive a setInterval for secondsLeft countdown
-  // - bind submit to round.submitRound
-  //
-  // Returning the default empty shape so the round pages render during
-  // the stub phase. Once implemented, the bound submit should also stop
-  // throwing on invocation.
-  return {
-    status: "idle",
-    roundNum: null,
-    roundType: null,
-    seed: null,
-    secondsLeft: null,
-    hasSubmitted: false,
-    submittedCount: 0,
-    totalPlayers: 0,
-    chains: null,
-    error: null,
-    submit: async (_content) => {
-      throw new Error("not implemented");
-    },
-    reset: async () => {
-      // TODO: bind to `round.js:resetGame()` once the hook is implemented.
-      throw new Error("not implemented");
-    },
-  };
+  const [state, setState] = useState(INITIAL);
+  const deadlineRef = useRef(null);
+
+  useEffect(() => {
+    const offBegin = on("round:begin", (data) => {
+      const timeLimit =
+        typeof data?.timeLimit === "number" ? data.timeLimit : null;
+      deadlineRef.current =
+        timeLimit != null ? Date.now() + timeLimit * 1000 : null;
+      setState((prev) => ({
+        ...prev,
+        status: "active",
+        roundNum: data?.roundNum ?? null,
+        roundType: data?.roundType ?? null,
+        seed: data?.seed ?? null,
+        secondsLeft: timeLimit,
+        hasSubmitted: false,
+        submittedCount: 0,
+        chains: null,
+        error: null,
+      }));
+    });
+
+    const offSubmitted = on("round:player_submitted", (data) => {
+      setState((prev) => ({
+        ...prev,
+        submittedCount:
+          typeof data?.totalSubmitted === "number"
+            ? data.totalSubmitted
+            : prev.submittedCount + 1,
+        totalPlayers:
+          typeof data?.totalPlayers === "number"
+            ? data.totalPlayers
+            : prev.totalPlayers,
+      }));
+    });
+
+    const offEnded = on("round:ended", () => {
+      deadlineRef.current = null;
+      setState((prev) => ({ ...prev, secondsLeft: null }));
+    });
+
+    const offReveal = on("game:reveal", (data) => {
+      deadlineRef.current = null;
+      setState((prev) => ({
+        ...prev,
+        status: "reveal",
+        chains: Array.isArray(data?.chains) ? data.chains : null,
+        secondsLeft: null,
+      }));
+    });
+
+    const offOver = on("game:over", () => {
+      setState((prev) => ({ ...prev, status: "over" }));
+    });
+
+    const offError = on("room:error", (data) => {
+      setState((prev) => ({
+        ...prev,
+        error: {
+          code: data?.code ?? "ROOM_ERROR",
+          message: data?.message ?? "Unknown error",
+        },
+      }));
+    });
+
+    const offRoomUpdated = on("room:updated", () => {
+      setState((prev) =>
+        prev.status === "over" || prev.status === "reveal"
+          ? { ...INITIAL }
+          : prev,
+      );
+    });
+
+    return () => {
+      offBegin();
+      offSubmitted();
+      offEnded();
+      offReveal();
+      offOver();
+      offError();
+      offRoomUpdated();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (state.secondsLeft == null) return undefined;
+    const id = setInterval(() => {
+      if (deadlineRef.current == null) return;
+      const remaining = Math.max(
+        0,
+        Math.ceil((deadlineRef.current - Date.now()) / 1000),
+      );
+      setState((prev) =>
+        prev.secondsLeft === remaining
+          ? prev
+          : { ...prev, secondsLeft: remaining },
+      );
+    }, 250);
+    return () => clearInterval(id);
+  }, [state.secondsLeft == null]);
+
+  const submit = useCallback(async (content) => {
+    await submitRound(content);
+    setState((prev) => ({ ...prev, hasSubmitted: true }));
+  }, []);
+
+  const reset = useCallback(async () => {
+    await resetGame();
+    deadlineRef.current = null;
+    setState({ ...INITIAL });
+  }, []);
+
+  return { ...state, submit, reset };
 }

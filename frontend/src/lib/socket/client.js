@@ -1,9 +1,35 @@
 // frontend/src/lib/socket/client.js
 //
 // Singleton WebSocket client for the Code Telephone backend (`/ws/game`).
-// Stub only — bodies are intentionally unimplemented. See
-// docs/superpowers/specs/2026-05-16-lobby-networking-stubs.md and
+// See docs/superpowers/specs/2026-05-16-lobby-networking-stubs.md and
 // docs/API.md for the protocol.
+
+let socket = null;
+let currentStatus = "idle";
+let connectingPromise = null;
+let connectingReject = null;
+
+// Persist the inbound-event handler map on globalThis so Next.js Fast
+// Refresh re-evaluating this module does not lose handlers attached by
+// other modules (e.g. lobby.js) that may NOT have re-evaluated this turn.
+// Bump the version suffix when the handler protocol changes incompatibly.
+const HANDLERS_KEY = "__zeus_socket_handlers_v1";
+if (!globalThis[HANDLERS_KEY]) {
+  globalThis[HANDLERS_KEY] = new Map();
+}
+const handlers = globalThis[HANDLERS_KEY];
+
+function notify(event, data) {
+  const list = handlers.get(event);
+  if (!list || list.length === 0) return;
+  for (const h of [...list]) {
+    try {
+      h(data);
+    } catch (err) {
+      console.error(`[socket] handler for ${event} threw:`, err);
+    }
+  }
+}
 
 /**
  * Open the connection. Idempotent — calling again while already
@@ -16,8 +42,57 @@
  *                          rejects if the connection fails.
  */
 export async function connect(url) {
-  // TODO: implement
-  throw new Error("not implemented");
+  if (currentStatus === "open" && socket && socket.readyState === WebSocket.OPEN) {
+    return;
+  }
+  if (currentStatus === "connecting" && connectingPromise) {
+    return connectingPromise;
+  }
+
+  currentStatus = "connecting";
+  const ws = new WebSocket(url);
+  socket = ws;
+
+  connectingPromise = new Promise((resolve, reject) => {
+    connectingReject = reject;
+    const onOpen = () => {
+      ws.removeEventListener("open", onOpen);
+      ws.removeEventListener("error", onErrorEarly);
+      currentStatus = "open";
+      connectingReject = null;
+      resolve();
+    };
+    const onErrorEarly = () => {
+      ws.removeEventListener("open", onOpen);
+      ws.removeEventListener("error", onErrorEarly);
+      currentStatus = "closed";
+      if (socket === ws) socket = null;
+      connectingPromise = null;
+      connectingReject = null;
+      reject(new Error(`WebSocket connection to ${url} failed`));
+    };
+    ws.addEventListener("open", onOpen);
+    ws.addEventListener("error", onErrorEarly);
+  });
+
+  ws.addEventListener("message", (ev) => {
+    let frame;
+    try {
+      frame = JSON.parse(ev.data);
+    } catch {
+      return;
+    }
+    if (!frame || typeof frame.event !== "string") return;
+    notify(frame.event, frame.data ?? {});
+  });
+
+  ws.addEventListener("close", () => {
+    if (socket === ws) socket = null;
+    currentStatus = "closed";
+    connectingPromise = null;
+  });
+
+  return connectingPromise;
 }
 
 /**
@@ -29,8 +104,12 @@ export async function connect(url) {
  * @param {object} data  - payload object (will be JSON-stringified)
  */
 export function send(event, data) {
-  // TODO: implement
-  throw new Error("not implemented");
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  try {
+    socket.send(JSON.stringify({ event, data: data ?? {} }));
+  } catch (err) {
+    console.error(`[socket] send ${event} failed:`, err);
+  }
 }
 
 /**
@@ -43,22 +122,44 @@ export function send(event, data) {
  * @returns {() => void} unsubscribe function
  */
 export function on(event, handler) {
-  // TODO: implement
-  throw new Error("not implemented");
+  let list = handlers.get(event);
+  if (!list) {
+    list = [];
+    handlers.set(event, list);
+  }
+  list.push(handler);
+  return () => {
+    const arr = handlers.get(event);
+    if (!arr) return;
+    const idx = arr.indexOf(handler);
+    if (idx >= 0) arr.splice(idx, 1);
+  };
 }
 
 /**
  * Close the socket and clear all registered handlers.
  */
 export function disconnect() {
-  // TODO: implement
-  throw new Error("not implemented");
+  if (connectingReject) {
+    connectingReject(new Error("WebSocket disconnect() called before connect resolved"));
+    connectingReject = null;
+  }
+  handlers.clear();
+  if (socket) {
+    try {
+      socket.close();
+    } catch {
+      /* ignore */
+    }
+  }
+  socket = null;
+  currentStatus = "closed";
+  connectingPromise = null;
 }
 
 /**
  * @returns {"idle" | "connecting" | "open" | "closed"}
  */
 export function status() {
-  // TODO: implement
-  return "idle";
+  return currentStatus;
 }
