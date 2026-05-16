@@ -3,9 +3,22 @@
 // React hook exposing reactive lobby state + bound actions. Subscribes
 // to the singleton client.js, listens for `room:updated`, `room:error`,
 // and `game:started`.
-//
-// Stub: returns the default empty shape so pages render. The bound
-// `leave` and `start` methods throw on invocation until implemented.
+
+"use client";
+
+import { useEffect, useState } from "react";
+import { on } from "./client";
+import { getSession, leaveRoom, startGame, subscribeLobby } from "./lobby";
+
+function mapPlayers(players, hostId) {
+  if (!Array.isArray(players)) return [];
+  return players.map((p) => ({
+    id: p.id,
+    name: p.name,
+    ready: false,
+    host: typeof p.isHost === "boolean" ? p.isHost : p.id === hostId,
+  }));
+}
 
 /**
  * Subscribe to lobby state. The state shape mirrors what the waiting
@@ -24,27 +37,36 @@
  * }}
  */
 export function useLobby() {
-  // TODO: implement
-  // - subscribe to client.on("room:updated", ...) etc. via useEffect
-  // - hold reactive state with useState or useSyncExternalStore
-  // - bind leave/start to lobby.leaveRoom / lobby.startGame
-  //
-  // Returning the default empty shape so /waiting-room renders during
-  // the stub phase. Once implemented, the bound actions should also
-  // stop throwing on invocation.
+  const [snapshot, setSnapshot] = useState(() => getSession());
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setSnapshot(getSession());
+    const unsub = subscribeLobby((next) => setSnapshot({ ...next }));
+    const offErr = on("room:error", (data) => {
+      setError({
+        code: data?.code ?? "ROOM_ERROR",
+        message: data?.message ?? "Unknown error",
+      });
+    });
+    return () => {
+      unsub();
+      offErr();
+    };
+  }, []);
+
+  const isHost =
+    !!snapshot.playerId && snapshot.playerId === snapshot.hostId;
+
   return {
-    roomCode: null,
-    roomId: null,
-    playerId: null,
-    hostId: null,
-    players: [],
-    error: null,
-    isHost: false,
-    leave: async () => {
-      throw new Error("not implemented");
-    },
-    start: async () => {
-      throw new Error("not implemented");
-    },
+    roomCode: snapshot.code ?? null,
+    roomId: snapshot.roomId ?? null,
+    playerId: snapshot.playerId ?? null,
+    hostId: snapshot.hostId ?? null,
+    players: mapPlayers(snapshot.players, snapshot.hostId),
+    error,
+    isHost,
+    leave: leaveRoom,
+    start: startGame,
   };
 }

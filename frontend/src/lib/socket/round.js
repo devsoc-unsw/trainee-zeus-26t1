@@ -7,6 +7,29 @@
 // the matching server reply (or rejects on `room:error`).
 // See docs/API.md for the protocol.
 
+import { on, send } from "./client";
+import { getSession } from "./lobby";
+
+function awaitOne(eventOk, eventErr, predicate) {
+  return new Promise((resolve, reject) => {
+    let offOk = () => {};
+    let offErr = () => {};
+    offOk = on(eventOk, (data) => {
+      if (predicate && !predicate(data)) return;
+      offOk();
+      offErr();
+      resolve(data);
+    });
+    offErr = on(eventErr, (data) => {
+      offOk();
+      offErr();
+      const err = new Error(data?.message ?? "room error");
+      err.code = data?.code ?? "ROOM_ERROR";
+      reject(err);
+    });
+  });
+}
+
 /**
  * Send `round:submit` for the active round. Resolves once the server
  * broadcasts `round:player_submitted` for this player. Rejects on
@@ -18,11 +41,14 @@
  * @returns {Promise<void>}
  */
 export async function submitRound(content) {
-  // TODO: implement
-  // - send `round:submit` with {content}
-  // - listen once for `round:player_submitted` matching our playerId
-  // - reject on `room:error`
-  throw new Error("not implemented");
+  const session = getSession();
+  const reply = awaitOne(
+    "round:player_submitted",
+    "room:error",
+    (data) => !session.playerId || data?.playerId === session.playerId,
+  );
+  send("round:submit", { content });
+  await reply;
 }
 
 /**
@@ -47,8 +73,9 @@ export async function submitRound(content) {
  * }>}
  */
 export async function syncGame(roomId, playerId) {
-  // TODO: implement
-  throw new Error("not implemented");
+  const reply = awaitOne("game:state", "room:error");
+  send("game:sync", { roomId, playerId });
+  return reply;
 }
 
 /**
@@ -59,6 +86,7 @@ export async function syncGame(roomId, playerId) {
  * @returns {Promise<void>}
  */
 export async function resetGame() {
-  // TODO: implement
-  throw new Error("not implemented");
+  const reply = awaitOne("room:updated", "room:error");
+  send("game:reset", {});
+  await reply;
 }
