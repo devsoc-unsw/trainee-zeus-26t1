@@ -4,6 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { highlightToHtml } from "@/lib/highlight";
 import styles from "./CodeEditor.module.css";
 
+/* Controlled component: the parent owns the `value` and gets `onChange`
+   callbacks every time the user types, hits Tab, or hits Enter. Read-only
+   call sites can omit `onChange`. */
+
 /* ──────────────────────────────────────────────────────────────────────
    CodeEditor — LeetCode/HackerRank-style editor with Aero chrome.
    Layered:
@@ -37,23 +41,23 @@ function indentForNewline(value, caret) {
 }
 
 export default function CodeEditor({
-  initialCode = "",
+  value = "",
+  onChange,
   language = "python",
   readOnly = false,
   fileName = "solution",
   showStatusBar = true,
   height = 360,
 }) {
-  const [code, setCode] = useState(initialCode);
   const [cursor, setCursor] = useState({ ln: 1, col: 1 });
   const textareaRef = useRef(null);
   const preRef = useRef(null);
   const gutterRef = useRef(null);
 
-  const lineCount = useMemo(() => code.split("\n").length, [code]);
+  const lineCount = useMemo(() => value.split("\n").length, [value]);
   const highlighted = useMemo(
-    () => highlightToHtml(code, language),
-    [code, language]
+    () => highlightToHtml(value, language),
+    [value, language]
   );
 
   /* Keep scroll positions of the highlight layer + line-number gutter
@@ -88,7 +92,7 @@ export default function CodeEditor({
       const end = el.selectionEnd;
       const insert = " ".repeat(TAB_SPACES);
       const next = el.value.slice(0, start) + insert + el.value.slice(end);
-      setCode(next);
+      onChange?.(next);
       requestAnimationFrame(() => {
         el.selectionStart = el.selectionEnd = start + insert.length;
         updateCursor(el);
@@ -102,7 +106,7 @@ export default function CodeEditor({
       const indent = indentForNewline(el.value, start);
       const insert = "\n" + indent;
       const next = el.value.slice(0, start) + insert + el.value.slice(end);
-      setCode(next);
+      onChange?.(next);
       requestAnimationFrame(() => {
         el.selectionStart = el.selectionEnd = start + insert.length;
         updateCursor(el);
@@ -188,9 +192,10 @@ export default function CodeEditor({
           <textarea
             ref={textareaRef}
             className={styles.textarea}
-            value={code}
+            value={value}
             onChange={(e) => {
-              setCode(e.target.value);
+              if (readOnly) return;
+              onChange?.(e.target.value);
               updateCursor(e.currentTarget);
             }}
             onScroll={onScroll}
@@ -212,7 +217,7 @@ export default function CodeEditor({
           <span className={styles.statusSep} />
           <span>{lineCount} {lineCount === 1 ? "line" : "lines"}</span>
           <span className={styles.statusSep} />
-          <span>{code.length} chars</span>
+          <span>{value.length} chars</span>
           <div className={styles.statusSpacer} />
           <span>Spaces: 4</span>
           <span className={styles.statusSep} />

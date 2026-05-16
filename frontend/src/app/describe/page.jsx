@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
 import Notepad from "@/components/notepad/Notepad";
@@ -20,16 +21,22 @@ export default function DescribeDemo() {
     submit,
   } = useRound();
 
-  // TODO: read the Notepad's current value to pass to submit().
-  //       Notepad manages its own state internally; wiring requires
-  //       lifting state up. Placeholder for the stub.
-  const handleSubmit = () => {
-    submit("").catch((err) => console.error("[describe] submit failed:", err));
-  };
-
   const receivedCode = seed?.receivedContent ?? FALLBACK_CODE;
   // TODO: language is NOT in the round protocol — see editor/page.jsx.
   const language = "python";
+
+  const [description, setDescription] = useState("");
+
+  // Clear the description when a new round arrives.
+  useEffect(() => {
+    setDescription("");
+  }, [receivedCode]);
+
+  const handleSubmit = () => {
+    submit(description).catch((err) =>
+      console.error("[describe] submit failed:", err),
+    );
+  };
   const displayTimer =
     typeof secondsLeft === "number"
       ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
@@ -62,7 +69,7 @@ export default function DescribeDemo() {
           height={460}
         >
           <CodeEditor
-            initialCode={receivedCode}
+            value={receivedCode}
             language={language}
             fileName="mystery"
             readOnly
@@ -76,6 +83,8 @@ export default function DescribeDemo() {
       <div className={styles.notepadWindow}>
         <Notepad
           fileName="Untitled"
+          value={description}
+          onChange={setDescription}
           placeholder={NOTEPAD_PLACEHOLDER}
           x={640}
           y={88}

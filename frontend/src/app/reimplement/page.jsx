@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Notepad from "@/components/notepad/Notepad";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
@@ -19,16 +20,22 @@ export default function ReimplementDemo() {
     submit,
   } = useRound();
 
-  // TODO: read the CodeEditor's current value to pass to submit().
-  //       CodeEditor manages its own state internally; placeholder used.
-  const handleSubmit = () => {
-    submit("").catch((err) => console.error("[reimplement] submit failed:", err));
-  };
-
   const receivedDescription = seed?.receivedContent ?? FALLBACK_DESCRIPTION;
-  const starterCode = ""; // No starter line on rounds > 1 — server sends none.
   // TODO: language is NOT in the round protocol — see editor/page.jsx.
   const language = "python";
+
+  const [reconstructedCode, setReconstructedCode] = useState("");
+
+  // Clear the editor when a new round arrives.
+  useEffect(() => {
+    setReconstructedCode("");
+  }, [receivedDescription]);
+
+  const handleSubmit = () => {
+    submit(reconstructedCode).catch((err) =>
+      console.error("[reimplement] submit failed:", err),
+    );
+  };
   const displayTimer =
     typeof secondsLeft === "number"
       ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
@@ -55,7 +62,7 @@ export default function ReimplementDemo() {
       <div className={styles.descWindow}>
         <Notepad
           fileName="received"
-          initialValue={receivedDescription}
+          value={receivedDescription}
           readOnly
           x={56}
           y={88}
@@ -74,7 +81,8 @@ export default function ReimplementDemo() {
           height={460}
         >
           <CodeEditor
-            initialCode={starterCode}
+            value={reconstructedCode}
+            onChange={setReconstructedCode}
             language={language}
             fileName="solution"
             height={428}
