@@ -1,22 +1,15 @@
+"use client";
+
 import Window from "@/components/window/Window";
 import GlassPanel from "@/components/glass/GlassPanel";
 import Button from "@/components/input/Button";
 import Checkbox from "@/components/input/Checkbox";
 import Radio from "@/components/input/Radio";
 import PlayerAvatar from "@/components/game/PlayerAvatar";
+import { useLobby } from "@/lib/socket/useLobby";
 import styles from "./page.module.css";
 
-/* ──────────────────────────────────────────────────────────────────────
-   Static mock data for the lobby. Wired up later.
-   ────────────────────────────────────────────────────────────────────── */
-const ROOM_CODE = "ROOM-4829";
 const MAX_PLAYERS = 6;
-
-const players = [
-  { id: 1, name: "Jordan",  initials: "JS", ready: true,  host: true  },
-  { id: 2, name: "Amrita",  initials: "AM", ready: true,  host: false },
-  { id: 3, name: "Lukas",   initials: "LK", ready: false, host: false },
-];
 
 const languages = [
   { id: "python",     label: "Python" },
@@ -27,12 +20,19 @@ const languages = [
 const SELECTED_LANG = "python";
 
 export default function WaitingRoom() {
-  const emptySlots = MAX_PLAYERS - players.length;
+  const { roomCode, players, isHost, error, leave, start } = useLobby();
+
+  // TODO: render `error` (room:error payload) somewhere visible.
+  // TODO: render a loading / empty state when `roomCode` is null
+  //       (e.g. on first paint before the server replies).
+
+  const displayRoomCode = roomCode ?? "—";
+  const emptySlots = Math.max(0, MAX_PLAYERS - players.length);
 
   return (
     <div className={styles.lobbyStage}>
       <Window
-        title={`Code Telephone — Waiting Room — ${ROOM_CODE}`}
+        title={`Code Telephone — Waiting Room — ${displayRoomCode}`}
         width={580}
         menubar={
           <div className={styles.menuItems}>
@@ -46,7 +46,7 @@ export default function WaitingRoom() {
         <div className={styles.lobbyBody}>
           <header className={styles.header}>
             <div className={styles.roomLabel}>Room Code</div>
-            <div className={styles.roomCode}>{ROOM_CODE}</div>
+            <div className={styles.roomCode}>{displayRoomCode}</div>
           </header>
 
           <section className={styles.section}>
@@ -60,7 +60,7 @@ export default function WaitingRoom() {
               <ul className={styles.playerUl}>
                 {players.map((p) => (
                   <li key={p.id} className={styles.playerRow}>
-                    <PlayerAvatar initials={p.initials} seed={p.name} />
+                    <PlayerAvatar initials={p.name.slice(0, 2).toUpperCase()} seed={p.name} />
                     <span className={styles.playerName}>{p.name}</span>
                     {p.host && <span className={styles.hostTag}>host</span>}
                     <span className={styles.spacer} />
@@ -101,12 +101,20 @@ export default function WaitingRoom() {
           </section>
 
           <footer className={styles.actions}>
-            <Button>Leave</Button>
+            <Button onClick={() => { leave().catch((err) => console.error(err)); }}>
+              Leave
+            </Button>
             <span className={styles.flex} />
             <span className={styles.readyCount}>
               {players.filter((p) => p.ready).length} of {players.length} ready
             </span>
-            <Button variant="primary">Start Game</Button>
+            <Button
+              variant="primary"
+              disabled={!isHost}
+              onClick={() => { start().catch((err) => console.error(err)); }}
+            >
+              Start Game
+            </Button>
           </footer>
         </div>
       </Window>

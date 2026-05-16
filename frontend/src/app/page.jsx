@@ -6,6 +6,7 @@ import Window from "@/components/window/Window";
 import Button from "@/components/input/Button";
 import Radio from "@/components/input/Radio";
 import TextField from "@/components/input/TextField";
+import { createRoom, joinRoom } from "@/lib/socket/lobby";
 import styles from "./page.module.css";
 
 /* The home screen is a classic Win7 wizard:
@@ -36,14 +37,27 @@ export default function Home() {
 
   const isLast = step === TOTAL_STEPS;
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!canAdvance) return;
-    if (isLast) {
-      /* In a real wired-up app: create / join / matchmake.
-         For static UI, all three land in the waiting room. */
-      router.push("/waiting-room");
-    } else {
+    if (!isLast) {
       setStep(step + 1);
+      return;
+    }
+
+    // TODO: surface errors to the user (room:error → toast or inline message).
+    //       For now, errors bubble up and reach the console only.
+    try {
+      if (method === "create") {
+        await createRoom(nickname, /* roundCount */ 3);
+      } else if (method === "join") {
+        await joinRoom(joinInput, nickname);
+      } else {
+        // TODO: quick play — backend has no matchmake endpoint yet.
+      }
+      router.push("/waiting-room");
+    } catch (err) {
+      // TODO: render the error somewhere the user can see it.
+      console.error("[wizard] lobby action failed:", err);
     }
   };
 
