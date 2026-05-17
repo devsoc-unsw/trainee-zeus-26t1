@@ -139,8 +139,10 @@ export function useRound() {
     };
   }, []);
 
+  const timerActive = state.secondsLeft != null;
+
   useEffect(() => {
-    if (state.secondsLeft == null) return undefined;
+    if (!timerActive) return undefined;
     const id = setInterval(() => {
       if (deadlineRef.current == null) return;
       const remaining = Math.max(
@@ -154,7 +156,7 @@ export function useRound() {
       );
     }, 250);
     return () => clearInterval(id);
-  }, [state.secondsLeft == null]);
+  }, [timerActive]);
 
   const submit = useCallback(async (content) => {
     await submitRound(content);
