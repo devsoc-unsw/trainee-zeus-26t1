@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
 import Notepad from "@/components/notepad/Notepad";
@@ -26,11 +26,12 @@ export default function DescribeDemo() {
   const language = "python";
 
   const [description, setDescription] = useState("");
+  const [lastReceivedCode, setLastReceivedCode] = useState(receivedCode);
 
-  // Clear the description when a new round arrives.
-  useEffect(() => {
+  if (receivedCode !== lastReceivedCode) {
+    setLastReceivedCode(receivedCode);
     setDescription("");
-  }, [receivedCode]);
+  }
 
   const handleSubmit = () => {
     submit(description).catch((err) =>

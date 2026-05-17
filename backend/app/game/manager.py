@@ -579,7 +579,7 @@ class GameHub:
     ) -> list[ChainScore] | None:
         """Best-effort scoring — never blocks the reveal.
 
-        Lazy-imports `scoring` so a missing Anthropic SDK doesn't crash
+        Lazy-imports `scoring` so a missing Gemini SDK doesn't crash
         the hub on module load. Catches NotImplementedError (stub state)
         and any runtime failure; logs and returns None.
         """
