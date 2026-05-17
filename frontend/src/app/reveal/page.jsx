@@ -78,8 +78,16 @@ function eloFormatOf(delta) {
   return String(delta);
 }
 
+/** Map AI judge `overallScore` (0–1) to the reveal pill (0–100). */
+function chainScorePercent(scores, chainIndex) {
+  if (!Array.isArray(scores)) return null;
+  const row = scores.find((s) => s.chainIndex === chainIndex);
+  if (!row || typeof row.overallScore !== "number") return null;
+  return Math.round(row.overallScore * 100);
+}
+
 export default function RevealPage() {
-  const { chains, reset } = useRound();
+  const { chains, scores, reset } = useRound();
 
   // Pick the focal chain. Real games: chains[0]. Stub state: mock.
   const chain = chains && chains.length > 0 ? chains[0] : MOCK_CHAIN;
@@ -91,7 +99,8 @@ export default function RevealPage() {
   const reconstructedSegment =
     [...segments].reverse().find((s) => s.roundType === "code") ?? segments[segments.length - 1];
 
-  const scorePercent = usingMock ? MOCK_SCORE_PERCENT : null;
+  const liveScore = chainScorePercent(scores, 0);
+  const scorePercent = usingMock ? MOCK_SCORE_PERCENT : liveScore;
   const elo = usingMock
     ? MOCK_ELO
     // TODO: hydrate from protocol once subsystem #3 wires ELO into game:reveal.
