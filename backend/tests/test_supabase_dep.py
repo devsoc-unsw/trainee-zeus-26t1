@@ -13,8 +13,20 @@ def test_get_supabase_client_raises_without_env(monkeypatch):
         dep_module.get_supabase_client()
 
 
+def test_get_supabase_client_raises_on_placeholder_env(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://your-project.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "your-service-role-key")
+    import importlib
+
+    import app.deps.supabase as dep_module
+
+    importlib.reload(dep_module)
+    with pytest.raises(ValueError, match="placeholders"):
+        dep_module.get_supabase_client()
+
+
 def test_get_supabase_client_returns_client(monkeypatch):
-    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_URL", "https://testproject.supabase.co")
     monkeypatch.setenv(
         "SUPABASE_SERVICE_ROLE_KEY",
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.fake-signature",

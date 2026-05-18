@@ -130,6 +130,18 @@ class ChainScore(BaseModel):
     notes: str | None = None
 
 
+class RevealElo(BaseModel):
+    """Per-player ELO change shown on the reveal screen."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    player_id: str = Field(alias="playerId")
+    player_name: str = Field(alias="playerName")
+    before: int
+    after: int
+    delta: int
+
+
 class TestCase(BaseModel):
     """A single Judge0 test input/expected-output pair."""
 

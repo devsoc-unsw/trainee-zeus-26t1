@@ -48,9 +48,37 @@ def test_judge_test_result_serializes_camel_case():
 # --- Stub modules (teammate fills bodies later) ---
 
 
-def test_score_chain_raises_not_implemented():
-    with pytest.raises(NotImplementedError, match="score_chain"):
+def test_score_chain_raises_without_api_key(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
         asyncio.run(score_chain([]))
+
+
+def test_score_chain_parses_gemini_response(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+
+    mock_response = type("R", (), {"text": '{"overall_score": 0.87, "notes": "Same logic"}'})()
+
+    async def fake_generate(*_args, **_kwargs):
+        return mock_response
+
+    mock_aio = type("Aio", (), {})()
+    mock_aio.models = type("M", (), {"generate_content": fake_generate})()
+    mock_client = type("C", (), {"aio": mock_aio})()
+
+    with patch("app.game.scoring.genai.Client", return_value=mock_client):
+        chain = {
+            "segments": [
+                {"roundType": "code", "content": "def a(): pass"},
+                {"roundType": "describe", "content": "desc"},
+                {"roundType": "code", "content": "def b(): pass"},
+            ],
+        }
+        result = asyncio.run(score_chain([chain]))
+
+    assert len(result) == 1
+    assert result[0].overall_score == pytest.approx(0.87)
+    assert result[0].notes == "Same logic"
 
 
 def test_run_code_raises_not_implemented():
@@ -67,7 +95,8 @@ def test_run_code_raises_not_implemented():
 # --- _score_chains_safe scenarios ---
 
 
-def test_score_chains_safe_catches_not_implemented():
+def test_score_chains_safe_catches_missing_api_key(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     result = asyncio.run(GameHub()._score_chains_safe([]))
     assert result is None
 

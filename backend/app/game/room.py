@@ -67,6 +67,9 @@ class Room:
     timer_task: asyncio.Task | None = None
     over_task: asyncio.Task | None = None
     ended_rounds: set[int] = field(default_factory=set)
+    reveal_chains: list[dict[str, Any]] | None = None
+    reveal_scores: list[dict[str, Any]] | None = None
+    reveal_elo: list[dict[str, Any]] | None = None
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     def public_players(self) -> list[dict[str, Any]]:

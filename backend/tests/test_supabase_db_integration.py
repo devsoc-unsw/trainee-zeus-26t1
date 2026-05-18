@@ -85,7 +85,10 @@ def sb():
     try:
         return get_supabase_client()
     except ValueError as e:
-        pytest.skip(f"Missing Supabase env: {e}")
+        pytest.skip(
+            f"Supabase not configured for live tests: {e}. "
+            "Use the service_role JWT from Supabase → Project Settings → API."
+        )
     except SupabaseException as e:
         pytest.skip(
             "Invalid SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY "
