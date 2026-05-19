@@ -8,11 +8,14 @@ import LanguagePicker from "@/components/game/LanguagePicker";
 import PhaseHUD from "@/components/game/PhaseHUD";
 import styles from "./page.module.css";
 import { useRound } from "@/lib/socket/useRound";
+import { useLobby } from "@/lib/socket/useLobby";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/socket/session";
 
 const FALLBACK_DESCRIPTION = "Waiting for the previous player's description…";
 
 export default function ReimplementDemo() {
   const {
+    roundNum,
     seed,
     secondsLeft,
     submittedCount,
@@ -20,6 +23,7 @@ export default function ReimplementDemo() {
     hasSubmitted,
     submit,
   } = useRound();
+  const { roomId } = useLobby();
 
   const receivedDescription = seed?.receivedContent ?? FALLBACK_DESCRIPTION;
 
@@ -28,15 +32,24 @@ export default function ReimplementDemo() {
   const [lastReceivedDescription, setLastReceivedDescription] =
     useState(receivedDescription);
 
+  // When the seed flips to a new round's description, restore the draft for
+  // that (roomId, roundNum) if one was saved, otherwise start blank.
   if (receivedDescription !== lastReceivedDescription) {
     setLastReceivedDescription(receivedDescription);
-    setReconstructedCode("");
+    const saved =
+      roomId && roundNum ? loadDraft(roomId, roundNum) : null;
+    setReconstructedCode(saved ?? "");
   }
 
+  const handleCodeChange = (val) => {
+    setReconstructedCode(val);
+    if (roomId && roundNum) saveDraft(roomId, roundNum, val);
+  };
+
   const handleSubmit = () => {
-    submit(reconstructedCode, language).catch((err) =>
-      console.error("[reimplement] submit failed:", err),
-    );
+    submit(reconstructedCode, language)
+      .then(() => clearDraft())
+      .catch((err) => console.error("[reimplement] submit failed:", err));
   };
 
   const solutionExt =
@@ -93,7 +106,7 @@ export default function ReimplementDemo() {
           />
           <CodeEditor
             value={reconstructedCode}
-            onChange={setReconstructedCode}
+            onChange={handleCodeChange}
             language={language}
             fileName="solution"
             height={428}
