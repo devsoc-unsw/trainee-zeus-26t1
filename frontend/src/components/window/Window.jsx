@@ -1,5 +1,40 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./Window.module.css";
+
+/* Clamping for drag positions. Keep at least MIN_TITLEBAR_VISIBLE pixels
+   of titlebar inside the viewport horizontally, and never let the
+   titlebar slip under the Superbar at the bottom or above the top of the
+   desktop. The two constants mirror values pinned in the corresponding
+   CSS files:
+   - TITLEBAR_HEIGHT matches `.titlebar { height: 30px }` in Window.module.css.
+   - SUPERBAR_HEIGHT matches `.superbar { height: 40px }` in Superbar.module.css.
+   If either is changed, update these too. */
+const TITLEBAR_HEIGHT = 30;
+const SUPERBAR_HEIGHT = 40;
+const MIN_TITLEBAR_VISIBLE = 80;
+
+function clampPosition(x, y, windowWidth) {
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 1080;
+
+  const w = typeof windowWidth === "number" ? windowWidth : 0;
+
+  /* Horizontal: at least MIN_TITLEBAR_VISIBLE px of titlebar must stay
+     inside the viewport on each side. Right edge of window can go to
+     vw - MIN_TITLEBAR_VISIBLE; left edge can go down to
+     MIN_TITLEBAR_VISIBLE - w. */
+  const minX = MIN_TITLEBAR_VISIBLE - w;
+  const maxX = vw - MIN_TITLEBAR_VISIBLE;
+  const clampedX = Math.min(maxX, Math.max(minX, x));
+
+  /* Vertical: titlebar top can't go above 0 (top of desktop) and the
+     titlebar's bottom can't slip under the Superbar. */
+  const minY = 0;
+  const maxY = vh - SUPERBAR_HEIGHT - TITLEBAR_HEIGHT;
+  const clampedY = Math.min(maxY, Math.max(minY, y));
+
+  return { x: clampedX, y: clampedY };
+}
 
 /* Window control icons rendered as inline SVGs so they stay crisp.
    They sit centred inside the 44×22 control buttons. */
@@ -101,6 +136,18 @@ export default function Window({
      pointerdown. Kept in a ref because it does not affect rendering. */
   const dragOrigin = useRef(null);
 
+  /* On viewport resize, re-clamp the current position so the titlebar
+     stays reachable. Only meaningful for draggable windows; the listener
+     is attached only in that case. */
+  useEffect(() => {
+    if (!draggable) return;
+    const onResize = () => {
+      setPos((p) => clampPosition(p.x, p.y, width));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [draggable, width]);
+
   const liveX = draggable ? pos.x : x;
   const liveY = draggable ? pos.y : y;
 
@@ -125,7 +172,7 @@ export default function Window({
     const { startX, startY, originX, originY } = dragOrigin.current;
     const nextX = originX + e.clientX - startX;
     const nextY = originY + e.clientY - startY;
-    setPos({ x: nextX, y: nextY });
+    setPos(clampPosition(nextX, nextY, width));
   };
 
   const handlePointerUp = (e) => {
