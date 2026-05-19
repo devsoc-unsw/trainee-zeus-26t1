@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
 import LanguagePicker from "@/components/game/LanguagePicker";
 import Button from "@/components/input/Button";
 import styles from "./page.module.css";
 import { useRound } from "@/lib/socket/useRound";
+import { useLobby } from "@/lib/socket/useLobby";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/socket/session";
 
 const FALLBACK_PROMPT = "Waiting for prompt…";
 const FALLBACK_STARTER = "# write your solution here\n";
@@ -21,22 +23,37 @@ export default function EditorDemo() {
     hasSubmitted,
     submit,
   } = useRound();
+  const { roomId } = useLobby();
 
   const promptText = seed?.promptText ?? FALLBACK_PROMPT;
   const starterCode = seed?.starterLine ?? FALLBACK_STARTER;
-
+  // TODO: language is NOT in the round protocol — picked at lobby creation
+  //       in the UI but not yet on the wire. Hardcoded for now.
   const [language, setLanguage] = useState("python");
-  const [editorValue, setEditorValue] = useState(starterCode);
 
-  // Re-seed the editor when a new round arrives (starterCode changes).
-  useEffect(() => {
-    setEditorValue(starterCode);
-  }, [starterCode]);
+  const [editorValue, setEditorValue] = useState(starterCode);
+  const [lastRoundKey, setLastRoundKey] = useState(null);
+
+  // Compare-in-render: when (roomId, roundNum) first becomes available or
+  // changes to a new round, prefer a saved draft over the starter line.
+  // loadDraft returns null when the stored key doesn't match, so a stale
+  // draft never bleeds into a new round.
+  const roundKey = roomId && roundNum ? `${roomId}:${roundNum}` : null;
+  if (roundKey && roundKey !== lastRoundKey) {
+    setLastRoundKey(roundKey);
+    const saved = loadDraft(roomId, roundNum);
+    setEditorValue(saved ?? starterCode);
+  }
+
+  const handleEditorChange = (val) => {
+    setEditorValue(val);
+    if (roomId && roundNum) saveDraft(roomId, roundNum, val);
+  };
 
   const handleSubmit = () => {
-    submit(editorValue, language).catch((err) =>
-      console.error("[editor] submit failed:", err),
-    );
+    submit(editorValue)
+      .then(() => clearDraft())
+      .catch((err) => console.error("[editor] submit failed:", err));
   };
   const displayTimer =
     typeof secondsLeft === "number"
@@ -81,7 +98,7 @@ export default function EditorDemo() {
             />
             <CodeEditor
               value={editorValue}
-              onChange={setEditorValue}
+              onChange={handleEditorChange}
               language={language}
               fileName="solution"
               height={380}

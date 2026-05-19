@@ -7,6 +7,8 @@ import Notepad from "@/components/notepad/Notepad";
 import PhaseHUD from "@/components/game/PhaseHUD";
 import styles from "./page.module.css";
 import { useRound } from "@/lib/socket/useRound";
+import { useLobby } from "@/lib/socket/useLobby";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/socket/session";
 
 const FALLBACK_CODE = "# waiting for the previous player's code…\n";
 const NOTEPAD_PLACEHOLDER = "Describe what this function does in plain English.";
@@ -14,12 +16,15 @@ const NOTEPAD_PLACEHOLDER = "Describe what this function does in plain English."
 export default function DescribeDemo() {
   const {
     seed,
+    roundNum,
     secondsLeft,
     submittedCount,
     totalPlayers,
     hasSubmitted,
     submit,
   } = useRound();
+
+  const { roomId } = useLobby();
 
   const receivedCode = seed?.receivedContent ?? FALLBACK_CODE;
   // TODO: language is NOT in the round protocol — see editor/page.jsx.
@@ -28,15 +33,24 @@ export default function DescribeDemo() {
   const [description, setDescription] = useState("");
   const [lastReceivedCode, setLastReceivedCode] = useState(receivedCode);
 
+  // When the seed's receivedCode flips to a new round, restore the draft for
+  // that (roomId, roundNum) if one was saved, otherwise start blank.
   if (receivedCode !== lastReceivedCode) {
     setLastReceivedCode(receivedCode);
-    setDescription("");
+    const saved =
+      roomId && roundNum ? loadDraft(roomId, roundNum) : null;
+    setDescription(saved ?? "");
   }
 
+  const handleDescriptionChange = (val) => {
+    setDescription(val);
+    if (roomId && roundNum) saveDraft(roomId, roundNum, val);
+  };
+
   const handleSubmit = () => {
-    submit(description).catch((err) =>
-      console.error("[describe] submit failed:", err),
-    );
+    submit(description)
+      .then(() => clearDraft())
+      .catch((err) => console.error("[describe] submit failed:", err));
   };
   const displayTimer =
     typeof secondsLeft === "number"
@@ -85,7 +99,7 @@ export default function DescribeDemo() {
         <Notepad
           fileName="Untitled"
           value={description}
-          onChange={setDescription}
+          onChange={handleDescriptionChange}
           placeholder={NOTEPAD_PLACEHOLDER}
           x={640}
           y={88}
