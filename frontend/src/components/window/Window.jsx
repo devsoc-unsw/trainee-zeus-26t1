@@ -56,7 +56,7 @@ function DefaultWindowIcon() {
    the window is absolutely positioned on the desktop. Otherwise the parent
    layout (e.g. flex/grid centring) controls placement. Later this is
    where mouse-drag state will write back position changes. */
-function positionStyle({ x, y, width, height }) {
+function positionStyle({ x, y, width, height, zIndex }) {
   const px = (v) => (typeof v === "number" ? `${v}px` : v);
   const style = {};
   if (x !== undefined || y !== undefined) {
@@ -66,6 +66,7 @@ function positionStyle({ x, y, width, height }) {
   }
   if (width !== undefined) style.width = px(width);
   if (height !== undefined) style.height = px(height);
+  if (zIndex !== undefined) style.zIndex = zIndex;
   return Object.keys(style).length > 0 ? style : undefined;
 }
 
@@ -79,12 +80,15 @@ export default function Window({
   menubar,
   icon,
   className = "",
+  zIndex,
+  onActivate,
 }) {
   const Icon = icon ?? <DefaultWindowIcon />;
   return (
     <div
       className={`${styles.window} ${className}`}
-      style={positionStyle({ x, y, width, height })}
+      style={positionStyle({ x, y, width, height, zIndex })}
+      onPointerDownCapture={onActivate}
     >
       <div className={styles.titlebar}>
         <span className={styles.titlebarTopGlare} aria-hidden />
