@@ -8,6 +8,12 @@
 // (or rejects on `room:error`). See docs/API.md for the protocol.
 
 import { connect, on, send } from "./client";
+import {
+  clearDraft,
+  clearSession,
+  loadSession,
+  saveSession,
+} from "./session";
 
 // Persist the lobby store on globalThis so Next.js Fast Refresh re-
 // evaluating this module does NOT stack duplicate WebSocket handlers
@@ -25,8 +31,19 @@ const INITIAL_STATE = {
 };
 
 if (!globalThis[STORE_KEY]) {
+  const persisted = loadSession();
   globalThis[STORE_KEY] = {
-    state: { ...INITIAL_STATE },
+    state: persisted
+      ? {
+          code: persisted.code ?? null,
+          roomId: persisted.roomId ?? null,
+          playerId: persisted.playerId ?? null,
+          hostId: persisted.hostId ?? null,
+          roundCount: persisted.roundCount ?? null,
+          players: Array.isArray(persisted.players) ? persisted.players : [],
+          gameStarted: false,
+        }
+      : { ...INITIAL_STATE },
     subscribers: new Set(),
     attached: false,
   };
@@ -42,6 +59,10 @@ function setLobby(patch) {
       console.error("[lobby] subscriber threw:", err);
     }
   }
+  // Mirror to sessionStorage so a refresh preserves room + player identity.
+  // saveSession bails out when roomId / playerId are missing, so the empty
+  // INITIAL_STATE doesn't pollute storage.
+  saveSession(store.state);
 }
 
 function attachHandlersOnce() {
@@ -156,6 +177,8 @@ export async function joinRoom(code, name) {
  */
 export async function leaveRoom() {
   send("room:leave", {});
+  clearSession();
+  clearDraft();
   setLobby({ ...INITIAL_STATE });
 }
 

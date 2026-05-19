@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 RoundCount = Literal[3, 5]
 RoundType = Literal["code", "describe"]
+Language = Literal["python", "javascript", "java"]
 GameStatus = Literal["lobby", "active", "over"]
 RoomErrorCode = Literal[
     "ROOM_NOT_FOUND",
@@ -41,6 +42,7 @@ class SubmissionOut(BaseModel):
     player_name: str = Field(alias="playerName")
     content: str
     round_type: RoundType = Field(alias="roundType")
+    language: Language | None = None
 
 
 class ChainSegment(BaseModel):
@@ -51,6 +53,7 @@ class ChainSegment(BaseModel):
     author_id: str = Field(alias="authorId")
     author_name: str = Field(alias="authorName")
     content: str
+    language: Language | None = None
 
 
 class ChainOut(BaseModel):
@@ -115,6 +118,7 @@ class RoundSubmitPayload(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     content: str
+    language: Language | None = None
 
 
 # --- Scoring & code execution payloads ---

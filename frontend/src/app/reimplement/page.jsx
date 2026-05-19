@@ -4,6 +4,7 @@ import { useState } from "react";
 import Notepad from "@/components/notepad/Notepad";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
+import LanguagePicker from "@/components/game/LanguagePicker";
 import PhaseHUD from "@/components/game/PhaseHUD";
 import styles from "./page.module.css";
 import { useRound } from "@/lib/socket/useRound";
@@ -21,9 +22,8 @@ export default function ReimplementDemo() {
   } = useRound();
 
   const receivedDescription = seed?.receivedContent ?? FALLBACK_DESCRIPTION;
-  // TODO: language is NOT in the round protocol — see editor/page.jsx.
-  const language = "python";
 
+  const [language, setLanguage] = useState("python");
   const [reconstructedCode, setReconstructedCode] = useState("");
   const [lastReceivedDescription, setLastReceivedDescription] =
     useState(receivedDescription);
@@ -34,10 +34,13 @@ export default function ReimplementDemo() {
   }
 
   const handleSubmit = () => {
-    submit(reconstructedCode).catch((err) =>
+    submit(reconstructedCode, language).catch((err) =>
       console.error("[reimplement] submit failed:", err),
     );
   };
+
+  const solutionExt =
+    language === "javascript" ? "js" : language === "java" ? "java" : "py";
   const displayTimer =
     typeof secondsLeft === "number"
       ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
@@ -76,12 +79,18 @@ export default function ReimplementDemo() {
       {/* Right: the editor where Player C writes their reconstruction. */}
       <div className={styles.codeWindow}>
         <Window
-          title="solution.py — Code Telephone"
+          title={`solution.${solutionExt} — Code Telephone`}
           x={520}
           y={88}
           width={580}
           height={460}
         >
+          <LanguagePicker
+            value={language}
+            onChange={setLanguage}
+            disabled={hasSubmitted}
+            name="reimplement-language"
+          />
           <CodeEditor
             value={reconstructedCode}
             onChange={setReconstructedCode}

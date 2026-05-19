@@ -55,7 +55,7 @@ No request body or query parameters. Used for liveness checks.
 | `room:join` | Join an existing lobby by room `code` and `name`. |
 | `room:leave` | Leave the room (and disconnect handling updates others). |
 | `game:start` | Host starts the game from lobby (requires ≥3 players). |
-| `round:submit` | Submit content for the current active round. |
+| `round:submit` | Submit content for the current active round. On **code** rounds, optional `language`: `"python"` \| `"javascript"` \| `"java"` (defaults to `"python"` if omitted). Ignored on describe rounds. |
 | `game:sync` | Reattach socket to an existing `roomId` + `playerId`; server replies with `game:state`. |
 | `game:reset` | Host returns room to lobby after the game has ended (`status` `over`). |
 
@@ -70,8 +70,8 @@ No request body or query parameters. Used for liveness checks.
 | `game:started` | Game is active; includes `roundCount` and `timeLimits`. |
 | `round:begin` | Start of a round; **per-connection** payload `{roundNum, roundType, seed, timeLimit}` — `seed` carries the prompt / inherited content; `timeLimit` is the round duration in seconds (the frontend derives a local `secondsLeft` countdown from it). |
 | `round:player_submitted` | Progress broadcast when a player submits. Payload `{playerId, totalSubmitted, totalPlayers}` — counts toward round completion. |
-| `round:ended` | Round finished (all in or timeout); includes `submissions` and optional `nextRound`. |
-| `game:reveal` | Final **chains** for the completed game. May include optional **scores** (per-chain semantic-similarity, populated once AI judging is wired up — see `backend/app/game/scoring.py`). |
+| `round:ended` | Round finished (all in or timeout); includes `submissions` (each item has `content`, `roundType`, and `language` on code rounds or `null` on describe) and optional `nextRound`. |
+| `game:reveal` | Final **chains** for the completed game. Each **code** segment includes `language`; describe segments use `language: null`. May include optional **scores** (per-chain semantic-similarity, populated once AI judging is wired up — see `backend/app/game/scoring.py`). |
 | `game:over` | Emitted after a short delay following reveal. |
 | `game:state` | Snapshot for reconnect (`game:sync`): status, round, timer, seed, submitted flag, players. |
 

@@ -38,9 +38,10 @@ function awaitOne(eventOk, eventErr, predicate) {
  * @param {string} content - The submission text. For write/reimplement
  *                           rounds this is code; for describe rounds it
  *                           is the plain-English description.
+ * @param {string} [language] - `python` | `javascript` | `java` on code rounds.
  * @returns {Promise<void>}
  */
-export async function submitRound(content) {
+export async function submitRound(content, language) {
   const session = getSession();
   if (!session.playerId) throw new Error("not in a room");
   await ensureConnected();
@@ -49,7 +50,11 @@ export async function submitRound(content) {
     "room:error",
     (data) => data?.playerId === session.playerId,
   );
-  send("round:submit", { content });
+  const payload = { content };
+  if (language) {
+    payload.language = language;
+  }
+  send("round:submit", payload);
   await reply;
 }
 

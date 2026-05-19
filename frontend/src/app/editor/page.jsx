@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
+import LanguagePicker from "@/components/game/LanguagePicker";
 import Button from "@/components/input/Button";
 import styles from "./page.module.css";
 import { useRound } from "@/lib/socket/useRound";
@@ -23,10 +24,8 @@ export default function EditorDemo() {
 
   const promptText = seed?.promptText ?? FALLBACK_PROMPT;
   const starterCode = seed?.starterLine ?? FALLBACK_STARTER;
-  // TODO: language is NOT in the round protocol — picked at lobby creation
-  //       in the UI but not yet on the wire. Hardcoded for now.
-  const language = "python";
 
+  const [language, setLanguage] = useState("python");
   const [editorValue, setEditorValue] = useState(starterCode);
 
   // Re-seed the editor when a new round arrives (starterCode changes).
@@ -35,7 +34,7 @@ export default function EditorDemo() {
   }, [starterCode]);
 
   const handleSubmit = () => {
-    submit(editorValue).catch((err) =>
+    submit(editorValue, language).catch((err) =>
       console.error("[editor] submit failed:", err),
     );
   };
@@ -74,6 +73,12 @@ export default function EditorDemo() {
           </section>
 
           <div className={styles.editorWrap}>
+            <LanguagePicker
+              value={language}
+              onChange={setLanguage}
+              disabled={hasSubmitted}
+              name="editor-language"
+            />
             <CodeEditor
               value={editorValue}
               onChange={setEditorValue}

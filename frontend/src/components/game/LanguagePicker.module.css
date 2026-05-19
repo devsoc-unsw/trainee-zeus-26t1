@@ -1,0 +1,25 @@
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-inline-size: 0;
+}
+
+.legend {
+  font: var(--fw-semibold) var(--fs-body) var(--font-ui);
+  color: var(--text-on-glass);
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.fieldset:disabled .legend,
+.fieldset:disabled .row {
+  opacity: 0.6;
+}
