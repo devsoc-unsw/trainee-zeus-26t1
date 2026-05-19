@@ -1,0 +1,236 @@
+# Code Telephone — Hybrid Design Handoff
+
+> A polished Win7 Aero × macOS Tahoe hybrid prototype of the Code Telephone UI.
+> Built as a single-file click-through React prototype. The Next.js codebase
+> at [`trainee-zeus-26t1/`](../trainee-zeus-26t1/) is the production target —
+> port the visuals from here into that.
+
+---
+
+## TL;DR for the next agent
+
+You're picking up an HTML/React prototype that demonstrates a hybrid visual
+language for Code Telephone — **Windows 7 Aero bones, macOS Tahoe finish**.
+The user signed off on every direction below. **Do not change any of these
+without asking.** Your job is to (a) extend the prototype with new screens/
+features the user asks for, OR (b) help port the prototype's CSS and
+component decisions into the actual Next.js frontend.
+
+Open `Code Telephone — Hybrid.html` in a browser to see it run. The Tweaks
+panel toolbar toggle gives you a screen-jump grid and light/dark.
+
+---
+
+## The hybrid system (locked-in decisions)
+
+| Concern | Decision |
+|---|---|
+| **Balance** | 50/50 mashup: top Tahoe menu bar + bottom Win7 Superbar |
+| **Window chrome** | Win7 Aero title-bar gradient + macOS traffic-light controls on the LEFT |
+| **Start orb** | Dropped. Replaced with a Code Telephone logo lockup (blue glass tile, `{} phone cord` glyph) |
+| **Palette** | Lighter, Tahoe-leaning — pale neutrals, off-whites, subtle Aero blue accents |
+| **Typography** | `Segoe UI` → `system-ui` → `SF Pro Text` cascade (one identity across OSes) |
+| **Wallpaper** | Bliss-style rolling-green-hill SVG (re-tints in dark mode) |
+| **Glass intensity** | Subtle — Aero was always slightly translucent, keep it that way |
+| **Themes** | Light (default) + Dark, switched via `[data-theme]` on `<html>` |
+| **Interaction** | Click-through prototype — real navigation, draggable windows, fake timer |
+
+The title-bar gradient stops, button "ledge" ramp at 50.8→56.7%, and orb
+radial-gradient stops were originally **extracted from the SVGs at
+`../trainee-zeus-26t1/docs/aero-reference/`**. Preserve those values when
+porting — they're the soul of the Aero half.
+
+---
+
+## What's built
+
+**7 screens, all click-through navigable:**
+
+1. **Home** — 2-step wizard. Nickname → Create / Join / Quick play. Join modal with code field.
+2. **Waiting Room (Lobby)** — Room code, 6-player list with ready toggles, round-timing radio, bot/spectator checkboxes. **No language radio** (language is per-player-per-phase).
+3. **Write** — Free-form, Gartic-Phone-faithful. "You're the seed" banner. No prompt. Editor fills the window. Player picks their own language. Submit disabled until there's substantive code.
+4. **Describe** — Two panes: read-only IDE (predecessor's code) + editable Notepad.
+5. **Reimplement** — Mirror of Describe: read-only Notepad + editable IDE. Player picks their own language.
+6. **Waiting** — Auto-advances after ~6s. Submission confirmed, animated barber-pole, per-player status.
+7. **Reveal** — 3-node chain visualization (Code → Description → Code), side-by-side diff, animated count-up score, ELO row.
+
+**Always-on chrome:**
+
+- Top **MenuBar** (Tahoe) — `Code Telephone | File | Edit | View | Help` with working dropdowns. View menu jumps screens. System tray (battery, wifi, theme toggle, clock) on the right.
+- Bottom **Superbar** (Win7) — Logo lockup, taskbar items with the signature underglow stripe on the active item, mini system tray with clock + show-desktop strip.
+
+**Windows are draggable** by the title bar. Double-click title to maximize/restore. Clicking traffic lights doesn't drag.
+
+---
+
+## File structure
+
+```
+.
+├── Code Telephone — Hybrid.html   ← entry point
+├── styles.css                     ← design tokens (light + dark) + reset
+├── chrome.css                     ← MenuBar / Superbar / Window styles
+├── ui.css                         ← Buttons, inputs, glass panels, code view, lang picker
+├── screens.css                    ← Per-screen layouts (home/lobby/game/waiting/reveal)
+├── app.css                        ← Desktop icons, window stack, tweaks panel content
+├── bliss.jsx                      ← Bliss SVG wallpaper (auto-themes)
+├── chrome.jsx                     ← MenuBar, Superbar, Window primitive, CTLogo
+├── ui.jsx                         ← Button, GlassPanel, TextField, Checkbox, Radio,
+│                                    Avatar, Pill, Timer, PhaseTracker, CodeView,
+│                                    NotepadView, LanguagePicker, LANGS array
+├── screens-meta.jsx               ← Home, Lobby, Reveal
+├── screens-game.jsx               ← GameShell, Write, Describe, Reimplement, Waiting
+├── app.jsx                        ← Root, state, navigation, tweaks panel wiring
+├── tweaks-panel.jsx               ← Tweaks scaffold (untouched starter)
+└── HANDOFF.md                     ← (this file)
+```
+
+Each `*.jsx` is a `<script type="text/babel">` loaded by the HTML. Components
+attach themselves to `window` at the bottom of each file because Babel
+inline scripts don't share scope. Watch out for that if you split things
+further.
+
+---
+
+## Languages (12)
+
+Defined as the `LANGS` array in `ui.jsx`. Each has `{value, label, glyph,
+color, ext, starter}`. The `KEYWORDS` map adjacent has rough keyword sets
+for syntax highlighting. Adding a language = adding one entry to `LANGS`
+plus optionally a `KEYWORDS[value]` entry.
+
+```
+Python · JavaScript · TypeScript · Java · C · C++ · C# · Rust · Go · Ruby · Swift · Kotlin
+```
+
+The `LanguagePicker` component is a popover **portaled to `document.body`**
+so it escapes any ancestor `overflow:hidden`. Don't put it back inline.
+
+---
+
+## Design tokens
+
+All in `styles.css` under `:root` (light) and `[data-theme="dark"]`. Notable groups:
+
+- **`--titlebar-*`** — the 5-stop Win7 ramp. Light is the pale hybrid; dark is the slate variant. **Use `--titlebar-active`** for the computed gradient — don't redefine the stops.
+- **`--btn-rest`** — the 3-stop button ramp with the metallic mid-ledge preserved at the original 50.8% / 56.7% / 96.9% offsets.
+- **`--btn-hover-overlay`** — the pale-blue hover **stacked on top** of the rest gradient (do NOT replace).
+- **`--aero-50` … `--aero-900`** — Aero blue family for accents.
+- **`--neutral-0` … `--neutral-900`** — Tahoe neutral scale.
+- **`--tl-close / --tl-min / --tl-max`** — traffic light fills.
+- **`--sky-*` / `--hill-*`** — Bliss wallpaper anchors (consumed by `bliss.jsx`).
+- **`--glass-bg / --glass-bg-strong / --glass-bg-thin`** — three glass tints. Strong is for windows, default for panels, thin for very subtle overlays.
+- **`--r-1 … --r-5`, `--r-pill`** — radii. Tahoe is rounder than Win7; window corners are `--r-4` (14px).
+
+---
+
+## Component API quick-reference
+
+### `<Window>` (chrome.jsx)
+```jsx
+<Window
+  title="…"
+  subtitle="…"        // optional
+  icon={<…/>}         // optional
+  width={680}
+  height={460}
+  centered            // self-positions; user can drag from there
+  x={…} y={…}         // alternative to centered
+  toolbar={<…/>}      // optional row below title bar
+  flush               // content has no padding (for code editors)
+  noPadding
+  onClose={…} onMin={…} onMax={…}
+>
+  {children}
+</Window>
+```
+Draggable by the title bar. Double-click title → maximize toggle. Stays inside viewport.
+
+### `<Button>` (ui.jsx)
+Variants: `default | primary | danger | ghost`. Sizes: `sm | md | lg`. Pass
+`full` for 100% width.
+
+### `<LanguagePicker>` (ui.jsx)
+```jsx
+<LanguagePicker value={lang} onChange={setLang} label="Your language" />
+```
+Pass `label={null}` to hide the label.
+
+### `<CodeView>` (ui.jsx)
+```jsx
+<CodeView code={code} lang="python" onChange={setCode} readOnly={false} />
+```
+Dark IDE inside light Aero chrome. Tab inserts 4 spaces. Light syntax
+highlighter handles all 12 languages from the `KEYWORDS` table.
+
+### `<TweaksPanel>` (tweaks-panel.jsx — starter)
+Existing wiring in `app.jsx` has two sections: **Theme** (light/dark radio)
+and **Jump to screen**. Extend by adding more `<TweakSection>` children
+inside the panel — do **not** touch the starter file itself.
+
+---
+
+## State model
+
+Single source of truth in `app.jsx`'s `state` object:
+
+```js
+{
+  nickname: 'You',
+  roomCode: '4829',
+  lang: 'python',           // lobby-default; actual lang is per-phase local state
+  time: 'normal',           // 'fast' | 'normal' | 'long'
+  bots: true,
+  spectators: false,
+  players: [ /* lobby roster — 6 seats */ ],
+  gamePlayers: [ /* the 4-player game session — different shape */ ],
+}
+```
+
+Each game screen owns its own per-language `codeByLang` map, so switching
+languages mid-phase doesn't lose code.
+
+Navigation is a single `screen` string: `'desktop' | 'home' | 'lobby' |
+'write' | 'describe' | 'reimplement' | 'waiting' | 'reveal'`.
+
+---
+
+## Game-loop assumptions baked in
+
+These come from the user's clarifications during the build. Preserve them.
+
+- **3 phases per round, not 4.** Write → Describe → Reimplement. Reveal is the
+  scoring screen, not a chain phase. Phase counter is "X of 3".
+- **The chain has 3 nodes.** Code (Jordan) → Description (Amrita) → Code (Lukas).
+  Don't put a "Prompt" node at the start — Write is free-form.
+- **Write phase is Gartic-Phone-faithful** — no prompt, player writes anything.
+- **Language is per-player-per-phase**, not a room setting. Lobby has a note
+  explaining this in place of a language radio.
+- **The AI judge normalises across languages** — this is mentioned in the
+  lobby copy. If the user asks about cross-language scoring, that's the spec.
+
+---
+
+## Suggested next steps (the user hasn't asked for these — confirm first)
+
+- Port the design tokens into `frontend/src/app/globals.css` in the real Next.js codebase
+- Migrate `Window`, `MenuBar`, `Superbar`, `LanguagePicker`, `CodeView` components into `frontend/src/components/`
+- Wire the static UI to real WebSocket state (this is the existing project's deferred work, see `docs/build-status.md`)
+- Add sound effects (window open, error, notification) — Aero chimes
+- Z-index / window-manager logic for multiple simultaneous windows
+
+---
+
+## Verifier notes (gotchas to watch for)
+
+- `<defs>` in `bliss.jsx` must come **before** any element that consumes them
+  (broken once, fixed). Browsers tolerate out-of-order; the screenshot tool didn't.
+- Windows used to have hardcoded sizes that overflowed the preview iframe;
+  they now clamp with `Math.min(designed, window.innerWidth/Height - margin)`.
+  Keep that pattern on any new window.
+- Babel inline scripts don't share scope — every component file ends with
+  `window.X = X` assignments. Don't forget this when adding a new file.
+- The TweaksPanel handles its own activate/deactivate protocol. Do NOT wire
+  `__activate_edit_mode` listeners yourself in `app.jsx` — the starter does it.
+- `[data-theme="dark"]` is set on `<html>`, not `<body>`. CSS in this project
+  selects on that.
