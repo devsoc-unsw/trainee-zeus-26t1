@@ -3,7 +3,6 @@
 import Window from "@/components/window/Window";
 import GlassPanel from "@/components/glass/GlassPanel";
 import Button from "@/components/input/Button";
-import Checkbox from "@/components/input/Checkbox";
 import Radio from "@/components/input/Radio";
 import PlayerAvatar from "@/components/game/PlayerAvatar";
 import { useLobby } from "@/lib/socket/useLobby";
@@ -63,11 +62,6 @@ export default function WaitingRoom() {
                     <PlayerAvatar initials={p.name.slice(0, 2).toUpperCase()} seed={p.name} />
                     <span className={styles.playerName}>{p.name}</span>
                     {p.host && <span className={styles.hostTag}>host</span>}
-                    <span className={styles.spacer} />
-                    <Checkbox
-                      state={p.ready ? "checked" : "none"}
-                      label={p.ready ? "Ready" : "Not ready"}
-                    />
                   </li>
                 ))}
                 {Array.from({ length: emptySlots }).map((_, i) => (
@@ -105,12 +99,12 @@ export default function WaitingRoom() {
               Leave
             </Button>
             <span className={styles.flex} />
-            <span className={styles.readyCount}>
-              {players.filter((p) => p.ready).length} of {players.length} ready
+            <span className={styles.hostNote}>
+              {isHost ? "You're the host — start when ready." : "Waiting for host to start."}
             </span>
             <Button
               variant="primary"
-              disabled={!isHost}
+              disabled={!isHost || players.length < 3}
               onClick={() => { start().catch((err) => console.error(err)); }}
             >
               Start Game

@@ -62,6 +62,9 @@ export default function Notepad({
   y,
   width = 460,
   height = 540,
+  draggable = false,
+  zIndex,
+  onActivate,
 }) {
   const id = useId();
   const [cursor, setCursor] = useState({ ln: 1, col: 1 });
@@ -107,6 +110,9 @@ export default function Notepad({
       width={width}
       height={height}
       className={styles.notepadWindow}
+      draggable={draggable}
+      zIndex={zIndex}
+      onActivate={onActivate}
     >
       <div className={`${styles.body} ${readOnly ? styles.readOnlyBody : ""}`}>
         <textarea

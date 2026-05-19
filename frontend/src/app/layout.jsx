@@ -16,6 +16,20 @@ export default function RootLayout({ children }) {
           <div className="window-area">{children}</div>
           <Superbar />
         </div>
+        {/* Shown only on narrow viewports — the desktop UI assumes ≥900px.
+            CSS in globals.css toggles which surface is visible. */}
+        <div className="mobile-block" aria-hidden>
+          <div className="mobile-block__card">
+            <div className="mobile-block__glyph" aria-hidden>
+              ⊟
+            </div>
+            <h1 className="mobile-block__title">Open on a laptop or desktop</h1>
+            <p className="mobile-block__body">
+              Code Telephone is designed for a wider screen. Please open this
+              page on a device at least 900 pixels wide.
+            </p>
+          </div>
+        </div>
       </body>
     </html>
   );

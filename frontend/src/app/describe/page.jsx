@@ -52,6 +52,7 @@ export default function DescribeDemo() {
       .then(() => clearDraft())
       .catch((err) => console.error("[describe] submit failed:", err));
   };
+  const [topWindow, setTopWindow] = useState("notepad");
   const displayTimer =
     typeof secondsLeft === "number"
       ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
@@ -82,6 +83,9 @@ export default function DescribeDemo() {
           y={88}
           width={560}
           height={460}
+          zIndex={topWindow === "code" ? 2 : 1}
+          onActivate={() => setTopWindow("code")}
+          draggable
         >
           <CodeEditor
             value={receivedCode}
@@ -105,6 +109,9 @@ export default function DescribeDemo() {
           y={88}
           width={440}
           height={460}
+          zIndex={topWindow === "notepad" ? 2 : 1}
+          onActivate={() => setTopWindow("notepad")}
+          draggable
         />
       </div>
     </div>

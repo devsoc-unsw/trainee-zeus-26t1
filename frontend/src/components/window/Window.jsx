@@ -1,4 +1,40 @@
+import { useEffect, useRef, useState } from "react";
 import styles from "./Window.module.css";
+
+/* Clamping for drag positions. Keep at least MIN_TITLEBAR_VISIBLE pixels
+   of titlebar inside the viewport horizontally, and never let the
+   titlebar slip under the Superbar at the bottom or above the top of the
+   desktop. The two constants mirror values pinned in the corresponding
+   CSS files:
+   - TITLEBAR_HEIGHT matches `.titlebar { height: 30px }` in Window.module.css.
+   - SUPERBAR_HEIGHT matches `.superbar { height: 40px }` in Superbar.module.css.
+   If either is changed, update these too. */
+const TITLEBAR_HEIGHT = 30;
+const SUPERBAR_HEIGHT = 40;
+const MIN_TITLEBAR_VISIBLE = 80;
+
+function clampPosition(x, y, windowWidth) {
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 1080;
+
+  const w = typeof windowWidth === "number" ? windowWidth : 0;
+
+  /* Horizontal: at least MIN_TITLEBAR_VISIBLE px of titlebar must stay
+     inside the viewport on each side. Right edge of window can go to
+     vw - MIN_TITLEBAR_VISIBLE; left edge can go down to
+     MIN_TITLEBAR_VISIBLE - w. */
+  const minX = MIN_TITLEBAR_VISIBLE - w;
+  const maxX = vw - MIN_TITLEBAR_VISIBLE;
+  const clampedX = Math.min(maxX, Math.max(minX, x));
+
+  /* Vertical: titlebar top can't go above 0 (top of desktop) and the
+     titlebar's bottom can't slip under the Superbar. */
+  const minY = 0;
+  const maxY = vh - SUPERBAR_HEIGHT - TITLEBAR_HEIGHT;
+  const clampedY = Math.min(maxY, Math.max(minY, y));
+
+  return { x: clampedX, y: clampedY };
+}
 
 /* Window control icons rendered as inline SVGs so they stay crisp.
    They sit centred inside the 44×22 control buttons. */
@@ -54,9 +90,9 @@ function DefaultWindowIcon() {
 
 /* Build the CSS style block from positioning props. If x/y are provided
    the window is absolutely positioned on the desktop. Otherwise the parent
-   layout (e.g. flex/grid centring) controls placement. Later this is
-   where mouse-drag state will write back position changes. */
-function positionStyle({ x, y, width, height }) {
+   layout (e.g. flex/grid centring) controls placement. When `draggable`
+   is on, the live position comes from internal state, not the props. */
+function positionStyle({ x, y, width, height, zIndex }) {
   const px = (v) => (typeof v === "number" ? `${v}px` : v);
   const style = {};
   if (x !== undefined || y !== undefined) {
@@ -66,6 +102,7 @@ function positionStyle({ x, y, width, height }) {
   }
   if (width !== undefined) style.width = px(width);
   if (height !== undefined) style.height = px(height);
+  if (zIndex !== undefined) style.zIndex = zIndex;
   return Object.keys(style).length > 0 ? style : undefined;
 }
 
@@ -79,14 +116,85 @@ export default function Window({
   menubar,
   icon,
   className = "",
+  zIndex,
+  onActivate,
+  draggable = false,
 }) {
   const Icon = icon ?? <DefaultWindowIcon />;
+
+  /* Internal position state. Seeded from x/y props on mount. After
+     mount the props are ignored — the Window owns its position. Numeric
+     x/y are required for drag to work (otherwise the seeded value is
+     undefined and the math is meaningless). */
+  const [pos, setPos] = useState({
+    x: typeof x === "number" ? x : 0,
+    y: typeof y === "number" ? y : 0,
+  });
+  const [dragging, setDragging] = useState(false);
+
+  /* Drag origin: cursor position and window position at the moment of
+     pointerdown. Kept in a ref because it does not affect rendering. */
+  const dragOrigin = useRef(null);
+
+  /* On viewport resize, re-clamp the current position so the titlebar
+     stays reachable. Only meaningful for draggable windows; the listener
+     is attached only in that case. */
+  useEffect(() => {
+    if (!draggable) return;
+    const onResize = () => {
+      setPos((p) => clampPosition(p.x, p.y, width));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [draggable, width]);
+
+  const liveX = draggable ? pos.x : x;
+  const liveY = draggable ? pos.y : y;
+
+  const handlePointerDown = (e) => {
+    if (!draggable) return;
+    /* Don't start a drag if the pointer landed on one of the control
+       buttons (min/max/close). They keep working as buttons. */
+    if (e.target.closest("button")) return;
+
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragOrigin.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: pos.x,
+      originY: pos.y,
+    };
+    setDragging(true);
+  };
+
+  const handlePointerMove = (e) => {
+    if (!dragging || !dragOrigin.current) return;
+    const { startX, startY, originX, originY } = dragOrigin.current;
+    const nextX = originX + e.clientX - startX;
+    const nextY = originY + e.clientY - startY;
+    setPos(clampPosition(nextX, nextY, width));
+  };
+
+  const handlePointerUp = (e) => {
+    if (!dragging) return;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    dragOrigin.current = null;
+    setDragging(false);
+  };
+
   return (
     <div
-      className={`${styles.window} ${className}`}
-      style={positionStyle({ x, y, width, height })}
+      className={`${styles.window} ${className} ${dragging ? styles.dragging : ""}`}
+      style={positionStyle({ x: liveX, y: liveY, width, height, zIndex })}
+      onPointerDownCapture={onActivate}
     >
-      <div className={styles.titlebar}>
+      <div
+        className={`${styles.titlebar} ${draggable ? styles.titlebarDraggable : ""}`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
         <span className={styles.titlebarTopGlare} aria-hidden />
         <span className={styles.titlebarSheen} aria-hidden />
 
