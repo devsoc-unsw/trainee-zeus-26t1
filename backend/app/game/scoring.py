@@ -9,8 +9,7 @@ Cost / quota policy:
   project — when daily/minute quotas exhaust, the API will return
   errors that bubble up to `_score_chains_safe` in manager.py, which
   catches them, logs, and returns None. The reveal still happens,
-  just without the optional `scores` field. AI judging "turns itself
-  off" for the rest of the day; resumes next day when quota resets.
+  just without the optional `scores` field.
 - For local dev: `GEMINI_API_KEY` env var. No billing setup needed.
 
 See docs/superpowers/specs/2026-05-17-gemini-scoring-implementation.md.
@@ -72,22 +71,13 @@ _RESPONSE_SCHEMA = {
 async def score_chain(chains: list[dict[str, Any]]) -> list[ChainScore]:
     """Score each chain's semantic similarity start-to-end.
 
-    Input: the camelCase JSON output of `manager.GameHub._chains_payload` —
-    a list of chains. Each chain has `startPlayerId`, `startPlayerName`,
-    and `segments` (each segment has `roundNum`, `roundType`, `authorId`,
-    `authorName`, `content`).
-
-    Output: one ChainScore per input chain, with `chain_index` matching
-    the input order.
-
-    Raises RuntimeError if GEMINI_API_KEY is not set. Free-tier failures
-    (429, quota exhausted, network blip) bubble up as exceptions;
-    `_score_chains_safe` in manager.py catches them.
+    Raises RuntimeError if GEMINI_API_KEY is not set. Other failures
+    bubble up to `_score_chains_safe` in manager.py.
     """
     api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
+    if not api_key or not api_key.strip():
         raise RuntimeError("GEMINI_API_KEY is not set")
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key.strip())
 
     async def score_one(idx: int, chain: dict[str, Any]) -> ChainScore:
         segments = chain.get("segments", [])
@@ -111,13 +101,15 @@ async def score_chain(chains: list[dict[str, Any]]) -> list[ChainScore]:
             ),
         )
 
-        parsed = json.loads(response.text)
+        parsed = json.loads(response.text or "{}")
+        raw = float(parsed["overall_score"])
+        score = max(0.0, min(1.0, raw))
         return ChainScore(
             chain_index=idx,
-            overall_score=float(parsed["overall_score"]),
+            overall_score=score,
             notes=parsed.get("notes"),
         )
 
-    return await asyncio.gather(
-        *(score_one(i, c) for i, c in enumerate(chains)),
+    return list(
+        await asyncio.gather(*(score_one(i, c) for i, c in enumerate(chains))),
     )

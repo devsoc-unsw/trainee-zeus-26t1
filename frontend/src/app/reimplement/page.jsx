@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Notepad from "@/components/notepad/Notepad";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
@@ -25,11 +25,13 @@ export default function ReimplementDemo() {
   const language = "python";
 
   const [reconstructedCode, setReconstructedCode] = useState("");
+  const [lastReceivedDescription, setLastReceivedDescription] =
+    useState(receivedDescription);
 
-  // Clear the editor when a new round arrives.
-  useEffect(() => {
+  if (receivedDescription !== lastReceivedDescription) {
+    setLastReceivedDescription(receivedDescription);
     setReconstructedCode("");
-  }, [receivedDescription]);
+  }
 
   const handleSubmit = () => {
     submit(reconstructedCode).catch((err) =>

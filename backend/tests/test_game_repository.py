@@ -62,6 +62,25 @@ def test_no_client_skips(mock_sb):
     mock_sb.table.assert_not_called()
 
 
+def test_client_returns_none_when_supabase_rejects_api_key():
+    from supabase._sync.client import SupabaseException
+
+    with patch(
+        "app.deps.supabase.get_supabase_client",
+        side_effect=SupabaseException("Invalid API key"),
+    ):
+        assert game_repository._client() is None
+
+    game_repository.persist_room_created(
+        "00000000-0000-0000-0000-000000000001",
+        "ABC123",
+        "00000000-0000-0000-0000-000000000002",
+        "Host",
+        3,
+        None,
+    )
+
+
 def test_persist_room_state_maps_over_to_ended(mock_sb):
     with patch.object(game_repository, "_client", return_value=mock_sb):
         game_repository.persist_room_state(

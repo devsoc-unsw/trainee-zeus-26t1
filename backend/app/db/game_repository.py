@@ -16,10 +16,18 @@ logger = logging.getLogger(__name__)
 def _client() -> Any | None:
     try:
         from app.deps.supabase import get_supabase_client
+        from supabase._sync.client import SupabaseException
 
         return get_supabase_client()
     except ValueError:
         logger.debug("Supabase client unavailable (env not set)")
+        return None
+    except SupabaseException:
+        logger.warning(
+            "Supabase client unavailable (invalid SUPABASE_URL or "
+            "SUPABASE_SERVICE_ROLE_KEY); persistence disabled",
+            exc_info=True,
+        )
         return None
 
 

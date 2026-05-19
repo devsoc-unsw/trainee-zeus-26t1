@@ -28,6 +28,13 @@
   font-weight: var(--fw-semibold, 600);
 }
 
+.emptyMessage {
+  margin: 0;
+  padding: 24px 0;
+  text-align: center;
+  color: var(--text-on-glass-muted, rgba(255, 255, 255, 0.75));
+}
+
 /* ── Chain row ─────────────────────────────────────────────── */
 .chain {
   display: flex;

@@ -25,6 +25,7 @@ from app.game.room import (
 )
 from app.game.schemas import (
     ChainScore,
+    RevealElo,
     GameSyncPayload,
     RoomCreatePayload,
     RoomJoinPayload,
@@ -349,6 +350,9 @@ class GameHub:
             room.starter_line = random.choice(STARTER_LINES)
             room.submissions.clear()
             room.ended_rounds.clear()
+            room.reveal_chains = None
+            room.reveal_scores = None
+            room.reveal_elo = None
             room.current_round = 0
             room.status = "active"
 
@@ -534,6 +538,13 @@ class GameHub:
             payload["scores"] = [
                 s.model_dump(mode="json", by_alias=True) for s in scores
             ]
+            elo_reveal = self._compute_elo_reveal_safe(room, scores)
+            if elo_reveal is not None:
+                payload["elo"] = elo_reveal
+        room.reveal_chains = chains
+        room.reveal_scores = payload.get("scores")
+        room.reveal_elo = payload.get("elo")
+
         await self._broadcast(room, "game:reveal", payload)
 
         # Persist game completion (best-effort, fire-and-forget).
@@ -579,7 +590,7 @@ class GameHub:
     ) -> list[ChainScore] | None:
         """Best-effort scoring — never blocks the reveal.
 
-        Lazy-imports `scoring` so a missing Anthropic SDK doesn't crash
+        Lazy-imports `scoring` so a missing Gemini SDK doesn't crash
         the hub on module load. Catches NotImplementedError (stub state)
         and any runtime failure; logs and returns None.
         """
@@ -620,26 +631,81 @@ class GameHub:
             )
         return rows
 
+    def _elo_players_from_scores(
+        self, room: Room, scores: list[ChainScore]
+    ) -> list[dict[str, Any]]:
+        """One entry per chain starter with AI semantic score."""
+        from app.game.elo import DEFAULT_ELO
+
+        score_by = {s.chain_index: s.overall_score for s in scores}
+        players: list[dict[str, Any]] = []
+        for idx, pid in enumerate(room.rotation_order):
+            if idx not in score_by:
+                continue
+            pl = room.players[pid]
+            entry: dict[str, Any] = {
+                "player_id": pid,
+                "player_name": pl.name,
+                "current_elo": DEFAULT_ELO,
+                "chain_score": score_by[idx],
+            }
+            user_id = getattr(pl, "user_id", None)
+            if user_id:
+                stored = game_repository.get_user_elo(user_id)
+                if stored is not None:
+                    entry["current_elo"] = stored
+                entry["user_id"] = user_id
+            players.append(entry)
+        return players
+
+    def _compute_elo_reveal_safe(
+        self, room: Room, scores: list[ChainScore]
+    ) -> list[dict[str, Any]] | None:
+        """ELO deltas for game:reveal (all chain starters in the room)."""
+        try:
+            from app.game.elo import compute_elo_changes
+
+            players = self._elo_players_from_scores(room, scores)
+            if not players:
+                return None
+            changes = compute_elo_changes(players)
+            if not changes:
+                return None
+            reveal: list[dict[str, Any]] = []
+            for row in changes:
+                pid = row["player_id"]
+                name = row.get("player_name") or room.players[pid].name
+                reveal.append(
+                    RevealElo(
+                        player_id=pid,
+                        player_name=name,
+                        before=row["before"],
+                        after=row["after"],
+                        delta=row["delta"],
+                    ).model_dump(mode="json", by_alias=True)
+                )
+            return reveal
+        except Exception:  # noqa: BLE001
+            logger.warning("elo reveal failed", exc_info=True)
+            return None
+
     def _compute_elo_updates_safe(
         self,
         room: Room,
         scores: list[ChainScore],
     ) -> list[dict[str, Any]] | None:
-        """Compute ELO updates from current scores. Catches
-        NotImplementedError (stub state) and any runtime failure;
-        returns None on failure so the caller can skip the insert."""
+        """Persistable ELO rows (players with user_id only)."""
         try:
             from app.game.elo import compute_elo_changes
-            # Build the input shape: one entry per chain-starting player
-            # who has a user_id. Anonymous players (no user_id) are skipped.
-            # NOTE: room.players uses ephemeral player_id, not user_id.
-            # Until users are wired, this loop produces an empty list,
-            # which compute_elo_changes treats as a no-op.
-            # TODO (teammate): when players have user_id, populate this list.
-            return compute_elo_changes([])
-        except NotImplementedError:
-            logger.info("compute_elo_changes not implemented; no ELO updates")
-            return None
+
+            players = [
+                p
+                for p in self._elo_players_from_scores(room, scores)
+                if p.get("user_id")
+            ]
+            if not players:
+                return None
+            return compute_elo_changes(players)
         except Exception:  # noqa: BLE001
             logger.warning("compute_elo_changes failed", exc_info=True)
             return None
@@ -715,8 +781,12 @@ class GameHub:
 
         submitted = player_id in room.submitted_this_round if rnd > 0 else False
 
-        return {
-            "status": room.status,
+        status = room.status
+        if room.reveal_chains and room.status in ("active", "over"):
+            status = "reveal" if room.status == "active" else "over"
+
+        snap: dict[str, Any] = {
+            "status": status,
             "roundNum": rnd,
             "roundType": rtype,
             "timeRemaining": tr,
@@ -724,6 +794,13 @@ class GameHub:
             "submitted": submitted,
             "players": room.public_players(),
         }
+        if room.reveal_chains:
+            snap["chains"] = room.reveal_chains
+            if room.reveal_scores is not None:
+                snap["scores"] = room.reveal_scores
+            if room.reveal_elo is not None:
+                snap["elo"] = room.reveal_elo
+        return snap
 
     async def _game_reset(self, ws: WebSocket) -> None:
         ctx = self._ctx(ws)
@@ -755,6 +832,9 @@ class GameHub:
             room.round_time_limit = None
             room.prompt_text = ""
             room.starter_line = ""
+            room.reveal_chains = None
+            room.reveal_scores = None
+            room.reveal_elo = None
             self._cancel_round_timer(room)
             if room.over_task:
                 room.over_task.cancel()
