@@ -71,6 +71,7 @@ export default function DescribeDemo() {
           height={460}
           zIndex={topWindow === "code" ? 2 : 1}
           onActivate={() => setTopWindow("code")}
+          draggable
         >
           <CodeEditor
             value={receivedCode}
@@ -96,6 +97,7 @@ export default function DescribeDemo() {
           height={460}
           zIndex={topWindow === "notepad" ? 2 : 1}
           onActivate={() => setTopWindow("notepad")}
+          draggable
         />
       </div>
     </div>
