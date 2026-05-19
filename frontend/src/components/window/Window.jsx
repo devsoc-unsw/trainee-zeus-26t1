@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import styles from "./Window.module.css";
 
 /* Window control icons rendered as inline SVGs so they stay crisp.
@@ -54,8 +55,8 @@ function DefaultWindowIcon() {
 
 /* Build the CSS style block from positioning props. If x/y are provided
    the window is absolutely positioned on the desktop. Otherwise the parent
-   layout (e.g. flex/grid centring) controls placement. Later this is
-   where mouse-drag state will write back position changes. */
+   layout (e.g. flex/grid centring) controls placement. When `draggable`
+   is on, the live position comes from internal state, not the props. */
 function positionStyle({ x, y, width, height, zIndex }) {
   const px = (v) => (typeof v === "number" ? `${v}px` : v);
   const style = {};
@@ -82,15 +83,71 @@ export default function Window({
   className = "",
   zIndex,
   onActivate,
+  draggable = false,
 }) {
   const Icon = icon ?? <DefaultWindowIcon />;
+
+  /* Internal position state. Seeded from x/y props on mount. After
+     mount the props are ignored — the Window owns its position. Numeric
+     x/y are required for drag to work (otherwise the seeded value is
+     undefined and the math is meaningless). */
+  const [pos, setPos] = useState({
+    x: typeof x === "number" ? x : 0,
+    y: typeof y === "number" ? y : 0,
+  });
+  const [dragging, setDragging] = useState(false);
+
+  /* Drag origin: cursor position and window position at the moment of
+     pointerdown. Kept in a ref because it does not affect rendering. */
+  const dragOrigin = useRef(null);
+
+  const liveX = draggable ? pos.x : x;
+  const liveY = draggable ? pos.y : y;
+
+  const handlePointerDown = (e) => {
+    if (!draggable) return;
+    /* Don't start a drag if the pointer landed on one of the control
+       buttons (min/max/close). They keep working as buttons. */
+    if (e.target.closest("button")) return;
+
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragOrigin.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: pos.x,
+      originY: pos.y,
+    };
+    setDragging(true);
+  };
+
+  const handlePointerMove = (e) => {
+    if (!dragging || !dragOrigin.current) return;
+    const { startX, startY, originX, originY } = dragOrigin.current;
+    const nextX = originX + e.clientX - startX;
+    const nextY = originY + e.clientY - startY;
+    setPos({ x: nextX, y: nextY });
+  };
+
+  const handlePointerUp = (e) => {
+    if (!dragging) return;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    dragOrigin.current = null;
+    setDragging(false);
+  };
+
   return (
     <div
-      className={`${styles.window} ${className}`}
-      style={positionStyle({ x, y, width, height, zIndex })}
+      className={`${styles.window} ${className} ${dragging ? styles.dragging : ""}`}
+      style={positionStyle({ x: liveX, y: liveY, width, height, zIndex })}
       onPointerDownCapture={onActivate}
     >
-      <div className={styles.titlebar}>
+      <div
+        className={`${styles.titlebar} ${draggable ? styles.titlebarDraggable : ""}`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
         <span className={styles.titlebarTopGlare} aria-hidden />
         <span className={styles.titlebarSheen} aria-hidden />
 
