@@ -172,8 +172,9 @@
 .flex {
   flex: 1 1 auto;
 }
-.readyCount {
+.hostNote {
   font-size: 11px;
   color: var(--text-muted);
   margin-right: 4px;
+  font-style: italic;
 }
