@@ -199,3 +199,21 @@
   flex: 1 1 auto;
   min-height: 0;
 }
+
+/* ── Drag state ────────────────────────────────────────────────────── */
+/* Applied to the titlebar when the Window is opted into drag via the
+   `draggable` prop. The cursor change is the only visual hint that the
+   titlebar is grabbable. The control buttons (.ctrl) override this with
+   their own cursor: pointer. */
+.titlebarDraggable {
+  cursor: grab;
+}
+
+/* Applied to the outer `.window` element while a drag is in progress.
+   Forces the grabbing cursor everywhere inside and prevents text from
+   being selected when the pointer drifts over the content area. */
+.dragging,
+.dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
