@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Window from "@/components/window/Window";
 import Button from "@/components/input/Button";
 import Radio from "@/components/input/Radio";
 import TextField from "@/components/input/TextField";
 import { createRoom, joinRoom } from "@/lib/socket/lobby";
+import { loadNickname, saveNickname } from "@/lib/socket/session";
 import styles from "./page.module.css";
 
 /* The home screen is a classic Win7 wizard:
@@ -27,6 +28,15 @@ export default function Home() {
   const [nickname, setNickname] = useState("");
   const [method, setMethod] = useState("create");
   const [joinInput, setJoinInput] = useState("");
+
+  // Pre-fill the nickname on mount from localStorage. Done in an effect
+  // (not a lazy useState initializer) to avoid an SSR/CSR hydration
+  // mismatch — the server has no access to localStorage.
+  useEffect(() => {
+    const saved = loadNickname();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (saved) setNickname(saved);
+  }, []);
 
   const canAdvance =
     step === 1
@@ -122,13 +132,18 @@ export default function Home() {
 
 /* ── Step 1: nickname ─────────────────────────────────────────────── */
 function NicknameStep({ value, onChange }) {
+  const handleChange = (e) => {
+    const v = e.target.value;
+    onChange(v);
+    saveNickname(v);
+  };
   return (
     <div className={styles.stepBody}>
       <label className={styles.field}>
         <span className={styles.fieldLabel}>Your nickname:</span>
         <TextField
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={handleChange}
           placeholder="e.g. Jordan"
           maxLength={20}
           autoFocus
