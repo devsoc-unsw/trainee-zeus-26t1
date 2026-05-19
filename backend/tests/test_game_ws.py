@@ -58,6 +58,11 @@ def test_three_player_happy_path(game_client, monkeypatch):
     monkeypatch.setattr("app.game.manager.REVEAL_TO_OVER_SEC", 0.05)
     monkeypatch.setattr("app.game.manager.DEFAULT_TIME_LIMITS", {"code": 120, "describe": 120})
 
+    async def no_scores(_chains):
+        return None
+
+    monkeypatch.setattr("app.game.scoring.score_chain", no_scores)
+
     with (
         game_client.websocket_connect("/ws/game") as w1,
         game_client.websocket_connect("/ws/game") as w2,
@@ -93,13 +98,22 @@ def test_three_player_happy_path(game_client, monkeypatch):
             if round_num == 1:
                 assert rb1["seed"].get("promptText")
 
-            w1.send_json({"event": "round:submit", "data": {"content": f"c1r{round_num}"}})
-            w2.send_json({"event": "round:submit", "data": {"content": f"c2r{round_num}"}})
-            w3.send_json({"event": "round:submit", "data": {"content": f"c3r{round_num}"}})
+            submit_data = lambda c: {"content": f"c{c}r{round_num}", "language": "python"}
+            w1.send_json({"event": "round:submit", "data": submit_data(1)})
+            w2.send_json({"event": "round:submit", "data": submit_data(2)})
+            w3.send_json({"event": "round:submit", "data": submit_data(3)})
 
-            _drain_until(w1, "round:ended")
+            ended1 = _drain_until(w1, "round:ended")
             _drain_until(w2, "round:ended")
             _drain_until(w3, "round:ended")
+            if round_num in (1, 3):
+                code_subs = [
+                    s for s in ended1["submissions"] if s.get("roundType") == "code"
+                ]
+                assert code_subs
+                assert all(s.get("language") == "python" for s in code_subs)
+            else:
+                assert all(s.get("language") is None for s in ended1["submissions"])
 
         reveal1 = _next_event(w1, "game:reveal")
         reveal2 = _next_event(w2, "game:reveal")
@@ -107,6 +121,12 @@ def test_three_player_happy_path(game_client, monkeypatch):
         for rev in (reveal1, reveal2, reveal3):
             assert len(rev["chains"]) == 3
             assert "scores" not in rev
+            for chain in rev["chains"]:
+                for seg in chain["segments"]:
+                    if seg["roundType"] == "code":
+                        assert seg.get("language") == "python"
+                    else:
+                        assert seg.get("language") is None
 
         _next_event(w1, "game:over")
         _next_event(w2, "game:over")
@@ -115,6 +135,140 @@ def test_three_player_happy_path(game_client, monkeypatch):
         w1.send_json({"event": "game:reset", "data": {}})
         upd = _next_event(w1, "room:updated")
         assert len(upd["players"]) == 3
+
+
+def test_reveal_segments_carry_per_player_language(game_client, monkeypatch):
+    """Code segments on game:reveal reflect each player's round:submit language."""
+    monkeypatch.setattr("app.game.manager.fetch_random_prompt_text", lambda: "P")
+    monkeypatch.setattr("app.game.manager.REVEAL_TO_OVER_SEC", 0.05)
+    monkeypatch.setattr("app.game.manager.DEFAULT_TIME_LIMITS", {"code": 120, "describe": 120})
+    # Keep rotation order = join order so chain geometry is predictable.
+    monkeypatch.setattr("app.game.manager.random.shuffle", lambda _lst: None)
+
+    async def no_scores(_chains):
+        return None
+
+    monkeypatch.setattr("app.game.scoring.score_chain", no_scores)
+
+    with (
+        game_client.websocket_connect("/ws/game") as w1,
+        game_client.websocket_connect("/ws/game") as w2,
+        game_client.websocket_connect("/ws/game") as w3,
+    ):
+        w1.send_json({"event": "room:create", "data": {"name": "A", "roundCount": 3}})
+        code = _next_event(w1, "room:created")["code"]
+        w2.send_json({"event": "room:join", "data": {"code": code, "name": "B"}})
+        _next_event(w2, "room:joined")
+        _next_event(w1, "room:updated")
+        w3.send_json({"event": "room:join", "data": {"code": code, "name": "C"}})
+        _next_event(w3, "room:joined")
+        _next_event(w1, "room:updated")
+        _next_event(w2, "room:updated")
+
+        w1.send_json({"event": "game:start", "data": {}})
+        for w in (w1, w2, w3):
+            _next_event(w, "game:started")
+
+        # Round 1 (code): A=python, B=javascript, C=java
+        for w in (w1, w2, w3):
+            _next_event(w, "round:begin")
+        w1.send_json(
+            {"event": "round:submit", "data": {"content": "def a(): pass", "language": "python"}}
+        )
+        w2.send_json(
+            {
+                "event": "round:submit",
+                "data": {"content": "function b() {}", "language": "javascript"},
+            }
+        )
+        w3.send_json(
+            {
+                "event": "round:submit",
+                "data": {"content": "class C {}", "language": "java"},
+            }
+        )
+        _drain_until(w1, "round:ended")
+        _drain_until(w2, "round:ended")
+        _drain_until(w3, "round:ended")
+
+        # Round 2 (describe) — no language on wire
+        for w in (w1, w2, w3):
+            _next_event(w, "round:begin")
+        w1.send_json({"event": "round:submit", "data": {"content": "desc a"}})
+        w2.send_json({"event": "round:submit", "data": {"content": "desc b"}})
+        w3.send_json({"event": "round:submit", "data": {"content": "desc c"}})
+        _drain_until(w1, "round:ended")
+        _drain_until(w2, "round:ended")
+        _drain_until(w3, "round:ended")
+
+        # Round 3 (code)
+        for w in (w1, w2, w3):
+            _next_event(w, "round:begin")
+        w1.send_json(
+            {"event": "round:submit", "data": {"content": "def a2(): pass", "language": "java"}}
+        )
+        w2.send_json(
+            {
+                "event": "round:submit",
+                "data": {"content": "function b2() {}", "language": "python"},
+            }
+        )
+        w3.send_json(
+            {
+                "event": "round:submit",
+                "data": {"content": "class C2 {}", "language": "javascript"},
+            }
+        )
+        _drain_until(w1, "round:ended")
+        _drain_until(w2, "round:ended")
+        _drain_until(w3, "round:ended")
+
+        reveal = _next_event(w1, "game:reveal")
+        # Join order A → B → C; shuffle disabled → chain for starter A is A→B→C.
+        chain_a = next(c for c in reveal["chains"] if c["startPlayerName"] == "A")
+        r1_a = next(s for s in chain_a["segments"] if s["roundNum"] == 1)
+        r3_c = next(
+            s
+            for s in chain_a["segments"]
+            if s["roundNum"] == 3 and s["authorName"] == "C"
+        )
+        assert r1_a["language"] == "python"
+        assert r1_a["authorName"] == "A"
+        assert r3_c["language"] == "javascript"
+        describe_seg = next(s for s in chain_a["segments"] if s["roundType"] == "describe")
+        assert describe_seg.get("language") is None
+        assert describe_seg["authorName"] == "B"
+
+
+def test_round_submit_defaults_language_python(game_client, monkeypatch):
+    """Omitting language on a code round still stores python."""
+    monkeypatch.setattr("app.game.manager.fetch_random_prompt_text", lambda: "P")
+    monkeypatch.setattr("app.game.manager.REVEAL_TO_OVER_SEC", 0.05)
+    monkeypatch.setattr("app.game.manager.DEFAULT_TIME_LIMITS", {"code": 120, "describe": 120})
+
+    with (
+        game_client.websocket_connect("/ws/game") as w1,
+        game_client.websocket_connect("/ws/game") as w2,
+        game_client.websocket_connect("/ws/game") as w3,
+    ):
+        w1.send_json({"event": "room:create", "data": {"name": "A", "roundCount": 3}})
+        code = _next_event(w1, "room:created")["code"]
+        for w, name in ((w2, "B"), (w3, "C")):
+            w.send_json({"event": "room:join", "data": {"code": code, "name": name}})
+            _next_event(w, "room:joined")
+            _next_event(w1, "room:updated")
+        _next_event(w2, "room:updated")
+
+        w1.send_json({"event": "game:start", "data": {}})
+        for w in (w1, w2, w3):
+            _next_event(w, "game:started")
+        for w in (w1, w2, w3):
+            _next_event(w, "round:begin")
+        w1.send_json({"event": "round:submit", "data": {"content": "x"}})
+        w2.send_json({"event": "round:submit", "data": {"content": "y"}})
+        w3.send_json({"event": "round:submit", "data": {"content": "z"}})
+        ended = _drain_until(w1, "round:ended")
+        assert all(s.get("language") == "python" for s in ended["submissions"])
 
 
 def test_game_sync(monkeypatch, game_client):

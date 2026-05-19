@@ -122,6 +122,8 @@
 /* ── Editor wrap ─────────────────────────────────────────────────────── */
 .editorWrap {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .editorWrap > :global(div) {

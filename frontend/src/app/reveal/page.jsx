@@ -173,7 +173,7 @@ export default function RevealPage() {
                     </span>
                     <CodeEditor
                       value={originalSegment.content ?? ""}
-                      language="python"
+                      language={originalSegment.language ?? "python"}
                       fileName="original"
                       readOnly
                       height={220}
@@ -187,7 +187,7 @@ export default function RevealPage() {
                     </span>
                     <CodeEditor
                       value={reconstructedSegment.content ?? ""}
-                      language="python"
+                      language={reconstructedSegment.language ?? "python"}
                       fileName="reconstructed"
                       readOnly
                       height={220}

@@ -46,6 +46,12 @@ class Player:
 
 
 @dataclass
+class Submission:
+    content: str
+    language: str | None = None  # set on code rounds only
+
+
+@dataclass
 class Room:
     id: str
     code: str
@@ -62,7 +68,7 @@ class Room:
     round_time_limit: int | None = None
     prompt_text: str = ""
     starter_line: str = ""
-    submissions: dict[int, dict[str, str]] = field(default_factory=dict)
+    submissions: dict[int, dict[str, Submission]] = field(default_factory=dict)
     submitted_this_round: set[str] = field(default_factory=set)
     timer_task: asyncio.Task | None = None
     over_task: asyncio.Task | None = None

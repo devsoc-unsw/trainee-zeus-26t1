@@ -18,6 +18,7 @@ from app.game.room import (
     STARTER_LINES,
     Room,
     Player,
+    Submission,
     new_id,
     new_room_code,
     now_ms,
@@ -447,7 +448,8 @@ class GameHub:
         upstream = room.upstream_id(player_id)
         if upstream is None:
             return RoundSeed()
-        prev = room.submissions.get(rnd - 1, {}).get(upstream, "")
+        prev_entry = room.submissions.get(rnd - 1, {}).get(upstream)
+        prev = prev_entry.content if prev_entry else ""
         uname = room.players[upstream].name
         return RoundSeed(
             fromPlayerName=uname,
@@ -473,7 +475,14 @@ class GameHub:
             if player_id in room.submitted_this_round:
                 return
             rnd = room.current_round
-            room.submissions.setdefault(rnd, {})[player_id] = body.content
+            rtype = room.current_round_type or round_type_for_num(rnd)
+            lang: str | None = None
+            if rtype == "code":
+                lang = body.language or "python"
+            room.submissions.setdefault(rnd, {})[player_id] = Submission(
+                content=body.content,
+                language=lang,
+            )
             room.submitted_this_round.add(player_id)
             total = len(room.submitted_this_round)
             total_players = len(room.rotation_order)
@@ -503,14 +512,17 @@ class GameHub:
             room.ended_rounds.add(round_num)
             self._cancel_round_timer(room)
             submissions = []
+            rtype = round_type_for_num(round_num)
             for pid in room.rotation_order:
                 p = room.players[pid]
+                entry = room.submissions.get(round_num, {}).get(pid)
                 submissions.append(
                     {
                         "playerId": pid,
                         "playerName": p.name,
-                        "content": room.submissions.get(round_num, {}).get(pid, ""),
-                        "roundType": round_type_for_num(round_num),
+                        "content": entry.content if entry else "",
+                        "roundType": rtype,
+                        "language": entry.language if entry and rtype == "code" else None,
                     }
                 )
             next_r = round_num + 1 if round_num < room.round_count else None
@@ -718,14 +730,17 @@ class GameHub:
             for r in range(1, room.round_count + 1):
                 author_id = room.rotation_order[(s + r - 1) % n]
                 pl = room.players[author_id]
-                content = room.submissions.get(r, {}).get(author_id, "")
+                rtype = round_type_for_num(r)
+                entry = room.submissions.get(r, {}).get(author_id)
+                content = entry.content if entry else ""
                 segments.append(
                     {
                         "roundNum": r,
-                        "roundType": round_type_for_num(r),
+                        "roundType": rtype,
                         "authorId": author_id,
                         "authorName": pl.name,
                         "content": content,
+                        "language": entry.language if entry and rtype == "code" else None,
                     }
                 )
             start_id = room.rotation_order[s]

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from app.game.room import Player, Room, new_id
+from app.game.room import Player, Room, Submission, new_id
 
 
 def make_three_player_room(*, with_submissions: bool = True) -> Room:
@@ -30,19 +30,25 @@ def make_three_player_room(*, with_submissions: bool = True) -> Room:
     if with_submissions:
         room.submissions = {
             1: {
-                p1: "def reverse_string(s):\n    return s[::-1]\n",
-                p2: "Takes a string and returns it reversed.",
-                p3: "unused r1",
+                p1: Submission(
+                    "def reverse_string(s):\n    return s[::-1]\n",
+                    language="python",
+                ),
+                p2: Submission("Takes a string and returns it reversed."),
+                p3: Submission("unused r1", language="python"),
             },
             2: {
-                p1: "unused r2a",
-                p2: "Reverses characters in a string.",
-                p3: "unused r2b",
+                p1: Submission("unused r2a"),
+                p2: Submission("Reverses characters in a string."),
+                p3: Submission("unused r2b"),
             },
             3: {
-                p1: "unused r3a",
-                p2: "Same description pass-through.",
-                p3: "def flip(text):\n    return text[::-1]\n",
+                p1: Submission("unused r3a", language="python"),
+                p2: Submission("Same description pass-through."),
+                p3: Submission(
+                    "def flip(text):\n    return text[::-1]\n",
+                    language="javascript",
+                ),
             },
         }
     return room

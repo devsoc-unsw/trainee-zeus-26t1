@@ -16,7 +16,11 @@ info:
     `game:over`, `game:state`.
 
     The `game:reveal` payload contains `chains` (required) and may include `scores`
-    (optional — populated once AI judging is implemented).
+    (optional — populated once AI judging is implemented). Code segments include
+    `language` (`python` | `javascript` | `java`); describe segments use `language: null`.
+
+    `round:submit` accepts optional `language` on code rounds (defaults to `python`).
+    `round:ended` `submissions[]` echo `language` per the same rules.
 
     See `x-websocket` for path and envelope details.
 servers:

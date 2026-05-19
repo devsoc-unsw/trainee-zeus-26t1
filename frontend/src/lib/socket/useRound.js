@@ -211,7 +211,7 @@ function getServerSnapshot() {
  *   scores:         object[] | null,
  *   elo:            object[] | null,
  *   error:          { code: string, message: string } | null,
- *   submit:         (content: string) => Promise<void>,
+ *   submit:         (content: string, language?: string) => Promise<void>,
  *   reset:          () => Promise<void>,
  * }}
  */
@@ -237,8 +237,8 @@ export function useRound() {
     return () => clearInterval(id);
   }, [timerActive]);
 
-  const submit = useCallback(async (content) => {
-    await submitRound(content);
+  const submit = useCallback(async (content, language) => {
+    await submitRound(content, language);
     setRoundState((prev) => ({ ...prev, hasSubmitted: true }));
   }, []);
 

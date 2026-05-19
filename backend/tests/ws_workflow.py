@@ -62,6 +62,20 @@ def ws_url_from_base(base: str) -> str:
     return "ws://" + base + "/ws/game"
 
 
+def language_for_round(
+    player_name: str,
+    round_type: str,
+    *,
+    code_languages: dict[str, str] | None = None,
+) -> str | None:
+    """Language sent on round:submit for code rounds; None for describe."""
+    if round_type != "code":
+        return None
+    if code_languages and player_name in code_languages:
+        return code_languages[player_name]
+    return "python"
+
+
 def submission_for_round(
     player_name: str,
     round_num: int,
@@ -119,6 +133,7 @@ def run_three_player_workflow(
     host_name: str = "Jordan",
     guest_names: tuple[str, str] = ("Amrita", "Lukas"),
     round_count: int = 3,
+    code_languages: dict[str, str] | None = None,
     on_round_begin: Callable[[int, str, list[PlayerScript]], None] | None = None,
 ) -> dict[str, Any]:
     """
@@ -166,7 +181,13 @@ def run_three_player_workflow(
             content = submission_for_round(
                 p.name, round_num, round_type, player_order=player_order
             )
-            p.send("round:submit", {"content": content})
+            payload: dict[str, Any] = {"content": content}
+            lang = language_for_round(
+                p.name, round_type, code_languages=code_languages
+            )
+            if lang:
+                payload["language"] = lang
+            p.send("round:submit", payload)
         for p in all_players:
             p.drain_until("round:ended")
 

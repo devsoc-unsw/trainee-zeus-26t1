@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLobby } from "@/lib/socket/useLobby";
 import { useRound } from "@/lib/socket/useRound";
+import { getSession } from "@/lib/socket/lobby";
+import { syncGame } from "@/lib/socket/round";
+import { clearDraft, clearSession } from "@/lib/socket/session";
 
 /**
  * Top-level navigator. Mounted once in app/layout.jsx. Subscribes to
@@ -28,6 +31,22 @@ export default function GameRouter() {
   const pathname = usePathname();
   const { roomCode } = useLobby();
   const { status, roundType, roundNum } = useRound();
+
+  // One-shot reconnect on mount: if storage has a session, reattach via
+  // game:sync. On failure (room gone, server restarted), clear storage and
+  // let the routing effect below land the user on / naturally.
+  const syncedRef = useRef(false);
+  useEffect(() => {
+    if (syncedRef.current) return;
+    syncedRef.current = true;
+    const persisted = getSession();
+    if (!persisted.roomId || !persisted.playerId) return;
+    syncGame(persisted.roomId, persisted.playerId).catch((err) => {
+      console.warn("[GameRouter] sync failed; clearing session:", err);
+      clearSession();
+      clearDraft();
+    });
+  }, []);
 
   const target = useMemo(() => {
     if (!roomCode) return "/";

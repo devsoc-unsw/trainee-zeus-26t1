@@ -155,6 +155,7 @@ def test_chains_payload_player_a_original_and_player_c_reconstruct(completed_roo
     assert original["roundType"] == "code"
     assert original["authorId"] == p1
     assert "reverse_string" in original["content"]
+    assert original["language"] == "python"
 
     reconstructed = next(
         s for s in reversed(chain["segments"]) if s["roundType"] == "code"
@@ -162,6 +163,11 @@ def test_chains_payload_player_a_original_and_player_c_reconstruct(completed_roo
     assert reconstructed["roundNum"] == 3
     assert reconstructed["authorId"] == p3
     assert "flip" in reconstructed["content"]
+    assert reconstructed["language"] == "javascript"
+
+    describe_seg = chain["segments"][1]
+    assert describe_seg["roundType"] == "describe"
+    assert describe_seg.get("language") is None
 
 
 def test_round_type_for_num_matches_game_phases():
