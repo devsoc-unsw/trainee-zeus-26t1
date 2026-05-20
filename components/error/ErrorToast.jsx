@@ -1,10 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useLobby } from "@/lib/socket/useLobby";
-import { useRound } from "@/lib/socket/useRound";
 import GlassPanel from "@/components/glass/GlassPanel";
 import styles from "./ErrorToast.module.css";
+
+// Stubbed during Plan 2 migration (Task 1). This component is currently
+// not mounted anywhere — kept for the visual design only. When the new
+// Realtime error surface lands (Plan 2/3), wire it up properly.
+function useLobby() {
+  return { error: null };
+}
+function useRound() {
+  return { error: null };
+}
 
 const DISMISS_AFTER_MS = 6000;
 

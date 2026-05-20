@@ -6,11 +6,26 @@ import Button from "@/components/input/Button";
 import CodeEditor from "@/components/game/CodeEditor";
 import PlayerAvatar from "@/components/game/PlayerAvatar";
 import ScoreNumber from "@/components/game/ScoreNumber";
-import { getSession } from "@/lib/socket/lobby";
-import { syncGame } from "@/lib/socket/round";
-import { useLobby } from "@/lib/socket/useLobby";
-import { useRound } from "@/lib/socket/useRound";
 import styles from "./page.module.css";
+
+// Stubbed during Plan 2 migration (Task 1). The real round/lobby state
+// and session sync will be rewired against the new Realtime architecture
+// in later Plan 2/3 tasks.
+function useRound() {
+  return {
+    chains: [],
+    scores: [],
+    elo: [],
+    reset: async () => {},
+  };
+}
+function useLobby() {
+  return { playerId: null };
+}
+function getSession() {
+  return { roomId: null, playerId: null };
+}
+async function syncGame() {}
 
 function initialsOf(name) {
   if (!name) return "??";

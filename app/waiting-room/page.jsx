@@ -5,8 +5,20 @@ import GlassPanel from "@/components/glass/GlassPanel";
 import Button from "@/components/input/Button";
 import Radio from "@/components/input/Radio";
 import PlayerAvatar from "@/components/game/PlayerAvatar";
-import { useLobby } from "@/lib/socket/useLobby";
 import styles from "./page.module.css";
+
+// Stubbed during Plan 2 migration. Real implementation lands in Task 12
+// (via lib/realtime/useRoom.ts).
+function useLobby() {
+  return {
+    roomCode: null,
+    players: [],
+    isHost: false,
+    error: null,
+    leave: async () => {},
+    start: async () => {},
+  };
+}
 
 const MAX_PLAYERS = 6;
 

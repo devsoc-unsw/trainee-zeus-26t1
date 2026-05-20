@@ -6,9 +6,29 @@ import CodeEditor from "@/components/game/CodeEditor";
 import Notepad from "@/components/notepad/Notepad";
 import PhaseHUD from "@/components/game/PhaseHUD";
 import styles from "./page.module.css";
-import { useRound } from "@/lib/socket/useRound";
-import { useLobby } from "@/lib/socket/useLobby";
-import { clearDraft, loadDraft, saveDraft } from "@/lib/socket/session";
+
+// Stubbed during Plan 2 migration (Task 1). The real round/lobby state
+// and draft persistence will be rewired against the new Realtime
+// architecture in later Plan 2/3 tasks.
+function useRound() {
+  return {
+    seed: null,
+    roundNum: null,
+    secondsLeft: null,
+    submittedCount: 0,
+    totalPlayers: 0,
+    hasSubmitted: false,
+    submit: async () => {},
+  };
+}
+function useLobby() {
+  return { roomId: null };
+}
+function loadDraft() {
+  return null;
+}
+function saveDraft() {}
+function clearDraft() {}
 
 const FALLBACK_CODE = "# waiting for the previous player's code…\n";
 const NOTEPAD_PLACEHOLDER = "Describe what this function does in plain English.";

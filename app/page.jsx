@@ -6,8 +6,10 @@ import Window from "@/components/window/Window";
 import Button from "@/components/input/Button";
 import Radio from "@/components/input/Radio";
 import TextField from "@/components/input/TextField";
-import { createRoom, joinRoom } from "@/lib/socket/lobby";
-import { loadNickname, saveNickname } from "@/lib/socket/session";
+import { loadNickname, saveNickname } from "@/lib/storage/nickname";
+// createRoom / joinRoom will be replaced by fetch calls in Task 11 — the
+// `handleNext` body below temporarily console.warns instead. The wizard
+// UI still renders; only "Finish" is non-functional until Task 11.
 import styles from "./page.module.css";
 
 /* The home screen is a classic Win7 wizard:
@@ -54,21 +56,10 @@ export default function Home() {
       return;
     }
 
-    // TODO: surface errors to the user (room:error → toast or inline message).
-    //       For now, errors bubble up and reach the console only.
-    try {
-      if (method === "create") {
-        await createRoom(nickname, /* roundCount */ 3);
-      } else if (method === "join") {
-        await joinRoom(joinInput, nickname);
-      } else {
-        // TODO: quick play — backend has no matchmake endpoint yet.
-      }
-      router.push("/waiting-room");
-    } catch (err) {
-      // TODO: render the error somewhere the user can see it.
-      console.error("[wizard] lobby action failed:", err);
-    }
+    // Backend wiring (POST /api/rooms etc.) lands in Task 11. Until then
+    // the wizard is renderable but "Finish" is a no-op.
+    console.warn("[wizard] backend wiring lands in Task 11");
+    return;
   };
 
   const handleBack = () => {

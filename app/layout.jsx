@@ -1,6 +1,7 @@
 import "./globals.css";
 import Superbar from "@/components/desktop/Superbar";
-import GameRouter from "@/components/socket/GameRouter";
+// GameRouter was deleted in Plan 2 Task 1 (legacy WS routing). The new
+// Realtime-based per-room navigation is wired up in Tasks 10–12.
 
 export const metadata = {
   title: "Code Telephone",
@@ -11,7 +12,6 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <GameRouter />
         <div className="desktop-root">
           <div className="window-area">{children}</div>
           <Superbar />
