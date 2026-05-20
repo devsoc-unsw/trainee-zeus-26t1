@@ -7,9 +7,6 @@ import Button from "@/components/input/Button";
 import Radio from "@/components/input/Radio";
 import TextField from "@/components/input/TextField";
 import { loadNickname, saveNickname } from "@/lib/storage/nickname";
-// createRoom / joinRoom will be replaced by fetch calls in Task 11 — the
-// `handleNext` body below temporarily console.warns instead. The wizard
-// UI still renders; only "Finish" is non-functional until Task 11.
 import styles from "./page.module.css";
 
 /* The home screen is a classic Win7 wizard:
@@ -19,7 +16,7 @@ import styles from "./page.module.css";
 
    Two steps:
    1. Pick a nickname
-   2. Choose how to play (Create / Join / Quick play)
+   2. Choose how to play (Create / Join)
 */
 
 const TOTAL_STEPS = 2;
@@ -56,10 +53,39 @@ export default function Home() {
       return;
     }
 
-    // Backend wiring (POST /api/rooms etc.) lands in Task 11. Until then
-    // the wizard is renderable but "Finish" is a no-op.
-    console.warn("[wizard] backend wiring lands in Task 11");
-    return;
+    saveNickname(nickname.trim());
+
+    try {
+      if (method === "create") {
+        const res = await fetch("/api/rooms", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: nickname.trim(), roundCount: 3 }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error("[wizard] create failed:", err);
+          return;
+        }
+        const { code } = await res.json();
+        router.push(`/waiting-room/${code}`);
+      } else if (method === "join") {
+        const code = joinInput.replace(/^\/?r\//i, "").trim().toUpperCase();
+        const res = await fetch(`/api/rooms/${code}/join`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: nickname.trim() }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error("[wizard] join failed:", err);
+          return;
+        }
+        router.push(`/waiting-room/${code}`);
+      }
+    } catch (err) {
+      console.error("[wizard] lobby action failed:", err);
+    }
   };
 
   const handleBack = () => {
@@ -191,18 +217,6 @@ function MethodStep({ method, onMethodChange, joinInput, onJoinInputChange }) {
         </div>
       </div>
 
-      <div className={styles.option}>
-        <Radio
-          name="method"
-          value="quick"
-          label="Quick play"
-          checked={method === "quick"}
-          onChange={() => onMethodChange("quick")}
-        />
-        <p className={styles.optionHint}>
-          Get matched with random players who are looking for a game right now.
-        </p>
-      </div>
     </div>
   );
 }
