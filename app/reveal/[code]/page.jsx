@@ -1,31 +1,51 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Window from "@/components/window/Window";
 import Button from "@/components/input/Button";
 import CodeEditor from "@/components/game/CodeEditor";
 import PlayerAvatar from "@/components/game/PlayerAvatar";
-import ScoreNumber from "@/components/game/ScoreNumber";
+import { useRoom } from "@/lib/realtime/useRoom";
 import styles from "./page.module.css";
 
-// Stubbed during Plan 2 migration (Task 1). The real round/lobby state
-// and session sync will be rewired against the new Realtime architecture
-// in later Plan 2/3 tasks.
-function useRound() {
-  return {
-    chains: [],
-    scores: [],
-    elo: [],
-    reset: async () => {},
-  };
+function useRoomIdFromCode(code) {
+  const [roomId, setRoomId] = useState(null);
+  const [notFound, setNotFound] = useState(false);
+  useEffect(() => {
+    if (!code) return;
+    let cancelled = false;
+    (async () => {
+      const { getBrowserClient } = await import("@/lib/supabase/browser");
+      const sb = getBrowserClient();
+      const { data, error } = await sb
+        .from("rooms").select("id").eq("code", code).maybeSingle();
+      if (cancelled) return;
+      if (error || !data) { setNotFound(true); return; }
+      setRoomId(data.id);
+    })();
+    return () => { cancelled = true; };
+  }, [code]);
+  return { roomId, notFound };
 }
-function useLobby() {
-  return { playerId: null };
+
+function useMe(code) {
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    if (!code) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/rooms/${code}/me`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setMe(data);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [code]);
+  return me;
 }
-function getSession() {
-  return { roomId: null, playerId: null };
-}
-async function syncGame() {}
 
 function initialsOf(name) {
   if (!name) return "??";
@@ -33,150 +53,102 @@ function initialsOf(name) {
 }
 
 function roleLabelOf(roundType) {
-  if (roundType === "code") return "Code";
-  if (roundType === "describe") return "Desc";
-  return "?";
+  return roundType === "code" ? "Code" : "Desc";
 }
 
-function eloClassOf(delta, stylesRef) {
-  if (delta == null) return stylesRef.eloUnknown;
-  if (delta > 0) return stylesRef.eloPositive;
-  if (delta < 0) return stylesRef.eloNegative;
-  return stylesRef.eloUnknown;
-}
-
-function eloFormatOf(delta) {
-  if (delta == null) return "?";
-  if (delta > 0) return `+${delta}`;
-  return String(delta);
-}
-
-/** Prefer the chain this player started; otherwise first chain in the room. */
-function pickViewerChain(chains, playerId) {
-  if (!Array.isArray(chains) || chains.length === 0) return null;
-  if (playerId) {
-    const mine = chains.find((c) => c.startPlayerId === playerId);
-    if (mine) return mine;
+/** Group submissions by chain_index and order by round_num ascending. */
+function chainsFromSubmissions(submissions, players) {
+  const playersById = new Map(players.map((p) => [p.id, p]));
+  const byChain = new Map();
+  for (const sub of submissions) {
+    if (!byChain.has(sub.chain_index)) byChain.set(sub.chain_index, []);
+    byChain.get(sub.chain_index).push(sub);
   }
-  return chains[0];
-}
-
-function chainIndexOf(chains, chain) {
-  if (!chains || !chain) return 0;
-  const idx = chains.indexOf(chain);
-  return idx >= 0 ? idx : 0;
-}
-
-function originalSegmentOf(chain) {
-  return chain?.segments?.[0] ?? null;
-}
-
-function reconstructedSegmentOf(chain) {
-  const segments = chain?.segments;
-  if (!segments?.length) return null;
-  return (
-    [...segments].reverse().find((s) => s.roundType === "code") ??
-    segments[segments.length - 1]
-  );
-}
-
-/** Map AI judge `overallScore` (0–1) to the reveal pill (0–100). */
-function chainScorePercent(scores, chainIndex) {
-  if (!Array.isArray(scores)) return null;
-  const row = scores.find((s) => s.chainIndex === chainIndex);
-  if (!row || typeof row.overallScore !== "number") return null;
-  return Math.round(row.overallScore * 100);
-}
-
-/** ELO deltas for each unique author in the viewed chain. */
-function eloPlayersForChain(eloRows, chain) {
-  if (!chain?.segments) return [];
-  const byPlayerId = new Map();
-  if (Array.isArray(eloRows)) {
-    for (const row of eloRows) {
-      if (row?.playerId) byPlayerId.set(row.playerId, row);
-    }
-  }
-  const seen = new Set();
-  const out = [];
-  for (const seg of chain.segments) {
-    const key = seg.authorId ?? seg.authorName;
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    const row = byPlayerId.get(seg.authorId);
-    out.push({
-      name: seg.authorName,
-      delta: typeof row?.delta === "number" ? row.delta : null,
+  const chains = [];
+  for (const [chainIndex, segments] of [...byChain.entries()].sort((a, b) => a[0] - b[0])) {
+    segments.sort((a, b) => a.round_num - b.round_num);
+    chains.push({
+      chainIndex,
+      segments: segments.map((s) => ({
+        ...s,
+        authorName: s.author_id ? (playersById.get(s.author_id)?.name ?? "?") : "Prompt",
+      })),
     });
   }
-  return out;
+  return chains;
 }
 
 export default function RevealPage() {
-  const { chains, scores, elo, reset } = useRound();
-  const { playerId } = useLobby();
+  const params = useParams();
+  const router = useRouter();
+  const code = (params?.code || "").toString().toUpperCase();
+
+  const { roomId, notFound } = useRoomIdFromCode(code);
+  const { room, players, submissions, loading, error } = useRoom(roomId);
+  const me = useMe(code);
 
   useEffect(() => {
-    const { roomId, playerId: pid } = getSession();
-    if (!roomId || !pid) return undefined;
-    if (chains?.length && scores?.length && elo?.length) return undefined;
-    let cancelled = false;
-    syncGame(roomId, pid).catch((err) => {
-      if (!cancelled) console.error("[reveal] sync failed:", err);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [chains, scores, elo]);
+    if (!room || !code) return;
+    if (room.phase === "lobby") router.replace(`/waiting-room/${code}`);
+  }, [room?.phase, code, router]);
 
-  const chain = pickViewerChain(chains, playerId);
-  const chainIndex = chainIndexOf(chains, chain);
-  const segments = chain?.segments ?? [];
-  const originalSegment = originalSegmentOf(chain);
-  const reconstructedSegment = reconstructedSegmentOf(chain);
-  const scorePercent = chainScorePercent(scores, chainIndex);
-  const eloPlayers = chain ? eloPlayersForChain(elo, chain) : [];
+  useEffect(() => { if (notFound) router.replace("/"); }, [notFound, router]);
 
-  const handlePlayAgain = () => {
-    reset().catch((err) => console.error("[reveal] reset failed:", err));
+  const chains = chainsFromSubmissions(submissions, players);
+
+  const [viewerChainIndex, setViewerChainIndex] = useState(0);
+  useEffect(() => {
+    if (typeof me?.seatIndex === "number") setViewerChainIndex(me.seatIndex);
+  }, [me?.seatIndex]);
+
+  const chain = chains.find((c) => c.chainIndex === viewerChainIndex) ?? chains[0] ?? null;
+  const originalSegment = chain?.segments?.[0] ?? null;
+  const reconstructedSegment = chain
+    ? [...(chain.segments ?? [])].reverse().find((s) => s.round_type === "code") ?? null
+    : null;
+
+  const handlePlayAgain = async () => {
+    if (!code) return;
+    try {
+      const res = await fetch(`/api/rooms/${code}/reset`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Reset failed: ${err.error?.message ?? res.status}`);
+      }
+    } catch (err) {
+      console.error("[reveal] reset failed:", err);
+    }
   };
 
-  const handleReplay = () => {
-    console.log("[reveal] view replay — not implemented");
-  };
+  if (loading || !room) return <div className={styles.stage}>Loading…</div>;
 
   return (
     <div className={styles.stage}>
       <Window title="Code Telephone — Round Reveal" width={900} height={700}>
         <div className={styles.body}>
-          {!chain || !originalSegment || !reconstructedSegment ? (
-            <p className={styles.emptyMessage}>
-              No reveal data yet. Finish a game to see the chain here, or wait a
-              moment if you just completed a round.
-            </p>
+          {error && <div role="alert">Realtime error: {error}</div>}
+
+          {!chain || !originalSegment ? (
+            <p className={styles.emptyMessage}>No reveal data yet.</p>
           ) : (
             <>
               <section className={styles.section}>
-                <h2 className={styles.sectionTitle}>The chain</h2>
+                <h2 className={styles.sectionTitle}>
+                  Viewing chain {chain.chainIndex + 1} of {chains.length}
+                </h2>
                 <div className={styles.chain}>
-                  {segments.map((seg, i) => (
-                    <ChainNodeFragment
-                      key={`seg-${seg.roundNum}-${seg.authorId}-${i}`}
-                      segment={seg}
-                    />
+                  {chain.segments.map((seg, i) => (
+                    <span key={`seg-${seg.round_num}-${i}`}>
+                      <div className={styles.chainNode}>
+                        <PlayerAvatar initials={initialsOf(seg.authorName)} seed={seg.authorName} />
+                        <span className={styles.chainNodeName}>{seg.authorName}</span>
+                        <span className={styles.chainNodeLabel}>{roleLabelOf(seg.round_type)}</span>
+                      </div>
+                      {i < chain.segments.length - 1 && (
+                        <span className={styles.chainArrow} aria-hidden>→</span>
+                      )}
+                    </span>
                   ))}
-                  <span className={styles.chainArrow} aria-hidden>
-                    →
-                  </span>
-                  <div className={`${styles.chainNode} ${styles.chainScoreNode}`}>
-                    <span className={styles.chainStar} aria-hidden>
-                      ✦
-                    </span>
-                    <span className={styles.chainNodeName}>
-                      {scorePercent != null ? `${scorePercent}%` : "—"}
-                    </span>
-                    <span className={styles.chainNodeLabel}>Score</span>
-                  </div>
                 </div>
               </section>
 
@@ -184,55 +156,51 @@ export default function RevealPage() {
                 <div className={styles.diff}>
                   <div className={styles.diffPanel}>
                     <span className={styles.diffHeader}>
-                      Original<strong>({originalSegment.authorName})</strong>
+                      Original prompt <strong>(seed)</strong>
                     </span>
                     <CodeEditor
                       value={originalSegment.content ?? ""}
                       language={originalSegment.language ?? "python"}
-                      fileName="original"
+                      fileName="prompt"
                       readOnly
                       height={220}
                       showStatusBar={false}
                     />
                   </div>
-                  <div className={styles.diffPanel}>
-                    <span className={styles.diffHeader}>
-                      Reconstructed
-                      <strong>({reconstructedSegment.authorName})</strong>
-                    </span>
-                    <CodeEditor
-                      value={reconstructedSegment.content ?? ""}
-                      language={reconstructedSegment.language ?? "python"}
-                      fileName="reconstructed"
-                      readOnly
-                      height={220}
-                      showStatusBar={false}
-                    />
-                  </div>
+                  {reconstructedSegment && (
+                    <div className={styles.diffPanel}>
+                      <span className={styles.diffHeader}>
+                        Reconstructed <strong>({reconstructedSegment.authorName})</strong>
+                      </span>
+                      <CodeEditor
+                        value={reconstructedSegment.content ?? ""}
+                        language={reconstructedSegment.language ?? "python"}
+                        fileName="reconstructed"
+                        readOnly
+                        height={220}
+                        showStatusBar={false}
+                      />
+                    </div>
+                  )}
                 </div>
               </section>
 
               <section className={styles.section}>
-                <div className={styles.scoreWrap}>
-                  <ScoreNumber
-                    value={scorePercent}
-                    suffix="%"
-                    subLabel="semantic match"
-                  />
-                </div>
+                <p className={styles.emptyMessage}>
+                  AI scoring lands in Plan 4. For now, scroll the chain above.
+                </p>
               </section>
 
-              {eloPlayers.length > 0 && (
+              {chains.length > 1 && (
                 <section className={styles.section}>
-                  <div className={styles.eloRow}>
-                    <span className={styles.eloLabel}>ELO</span>
-                    {eloPlayers.map((p) => (
-                      <span key={p.name} className={styles.eloItem}>
-                        <span className={styles.eloName}>{p.name}</span>
-                        <span className={eloClassOf(p.delta, styles)}>
-                          {eloFormatOf(p.delta)}
-                        </span>
-                      </span>
+                  <div>
+                    {chains.map((c) => (
+                      <Button
+                        key={c.chainIndex}
+                        onClick={() => setViewerChainIndex(c.chainIndex)}
+                      >
+                        Chain {c.chainIndex + 1}{c.chainIndex === viewerChainIndex ? " ✓" : ""}
+                      </Button>
                     ))}
                   </div>
                 </section>
@@ -241,33 +209,12 @@ export default function RevealPage() {
           )}
 
           <footer className={styles.footer}>
-            <Button onClick={handleReplay}>View replay</Button>
-            <Button variant="primary" onClick={handlePlayAgain}>
+            <Button variant="primary" disabled={!me?.isHost} onClick={handlePlayAgain}>
               Play again
             </Button>
           </footer>
         </div>
       </Window>
     </div>
-  );
-}
-
-function ChainNodeFragment({ segment }) {
-  return (
-    <>
-      <div className={styles.chainNode}>
-        <PlayerAvatar
-          initials={initialsOf(segment.authorName)}
-          seed={segment.authorName}
-        />
-        <span className={styles.chainNodeName}>{segment.authorName}</span>
-        <span className={styles.chainNodeLabel}>
-          {roleLabelOf(segment.roundType)}
-        </span>
-      </div>
-      <span className={styles.chainArrow} aria-hidden>
-        →
-      </span>
-    </>
   );
 }
