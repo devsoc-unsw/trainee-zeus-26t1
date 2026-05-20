@@ -84,13 +84,29 @@ export default function RevealPage() {
   const code = (params?.code || "").toString().toUpperCase();
 
   const { roomId, notFound } = useRoomIdFromCode(code);
-  const { room, players, submissions, loading, error } = useRoom(roomId);
+  const { room, players, submissions, chainScores, loading, error } = useRoom(roomId);
   const me = useMe(code);
 
   useEffect(() => {
     if (!room || !code) return;
     if (room.phase === "lobby") router.replace(`/waiting-room/${code}`);
   }, [room?.phase, code, router]);
+
+  // Trigger AI judging once per (roomId, reveal phase) entry. Multiple
+  // reveal-page mounts across tabs all POST; the route+RPC are
+  // idempotent (chains already done/failed are skipped).
+  useEffect(() => {
+    if (!roomId || !room || room.phase !== "reveal") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await fetch(`/api/judge/${roomId}`, { method: "POST" });
+      } catch (err) {
+        if (!cancelled) console.warn("[reveal] judge trigger failed:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [roomId, room?.phase]);
 
   useEffect(() => { if (notFound) router.replace("/"); }, [notFound, router]);
 
@@ -185,11 +201,38 @@ export default function RevealPage() {
                 </div>
               </section>
 
-              <section className={styles.section}>
-                <p className={styles.emptyMessage}>
-                  AI scoring lands in Plan 4. For now, scroll the chain above.
-                </p>
-              </section>
+              {(() => {
+                const scoreRow = chainScores.find((s) => s.chain_index === chain.chainIndex);
+                if (!scoreRow || scoreRow.status === "pending") {
+                  return (
+                    <section className={styles.section}>
+                      <p className={styles.emptyMessage}>Scoring this chain…</p>
+                    </section>
+                  );
+                }
+                if (scoreRow.status === "failed") {
+                  return (
+                    <section className={styles.section}>
+                      <p className={styles.emptyMessage}>
+                        Scoring unavailable: {scoreRow.notes ?? "unknown error"}
+                      </p>
+                    </section>
+                  );
+                }
+                return (
+                  <section className={styles.section}>
+                    <div>
+                      <div style={{ fontSize: "3rem", fontWeight: 700 }}>
+                        {scoreRow.overall_score ?? "—"}
+                        <span style={{ fontSize: "1.5rem", opacity: 0.6 }}>/100</span>
+                      </div>
+                      {scoreRow.notes && (
+                        <p style={{ marginTop: "0.5rem", opacity: 0.8 }}>{scoreRow.notes}</p>
+                      )}
+                    </div>
+                  </section>
+                );
+              })()}
 
               {chains.length > 1 && (
                 <section className={styles.section}>
