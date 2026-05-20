@@ -1,5 +1,0 @@
-# Dev / e2e smoke only (see backend/scripts/e2e_smoke.sh)
-# Use backend/requirements.txt for httpx/supabase pins (TestClient + Supabase must match).
-playwright>=1.40,<2
-websockets>=12,<13
-h2>=4,<5

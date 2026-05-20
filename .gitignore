@@ -45,5 +45,8 @@ coverage/
 # Vercel
 .vercel
 
+# Archived FastAPI backend (post-Next.js merge — kept locally for reference only)
+legacy/
+
 # Skills
 agents
