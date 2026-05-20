@@ -8,3 +8,11 @@ export function roomChannel(roomId: string): string {
 export function playersChannel(roomId: string): string {
   return `players:${roomId}`;
 }
+
+export function submissionsChannel(roomId: string): string {
+  return `submissions:${roomId}`;
+}
+
+export function chainScoresChannel(roomId: string): string {
+  return `chain_scores:${roomId}`;
+}

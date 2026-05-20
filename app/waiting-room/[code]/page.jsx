@@ -43,6 +43,36 @@ function useRoomIdFromCode(code) {
   return { roomId, notFound };
 }
 
+function useMe(code) {
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    if (!code) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/rooms/${code}/me`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setMe(data);
+      } catch (err) {
+        console.error("[lobby] /me fetch failed:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [code]);
+  return me;
+}
+
+function routeForPhase(phase, code) {
+  switch (phase) {
+    case "writing":         return `/editor/${code}`;
+    case "describing":      return `/describe/${code}`;
+    case "reimplementing":  return `/reimplement/${code}`;
+    case "reveal":          return `/reveal/${code}`;
+    default:                return null;
+  }
+}
+
 export default function WaitingRoom() {
   const params = useParams();
   const router = useRouter();
@@ -50,7 +80,9 @@ export default function WaitingRoom() {
 
   const { roomId, notFound } = useRoomIdFromCode(code);
   const { room, players, loading, error } = useRoom(roomId);
+  const me = useMe(code);
 
+  // Cosmetic game-settings state (not yet backend-wired; redesign UX shell).
   const [timing, setTiming] = useState("normal");
   const [bots, setBots] = useState(true);
   const [spectators, setSpectators] = useState(false);
@@ -59,6 +91,13 @@ export default function WaitingRoom() {
     if (notFound) router.replace("/");
   }, [notFound, router]);
 
+  // Phase navigation: when room transitions out of lobby, every client follows.
+  useEffect(() => {
+    if (!room || !code) return;
+    const target = routeForPhase(room.phase, code);
+    if (target) router.replace(target);
+  }, [room?.phase, code, router]);
+
   const handleLeave = async () => {
     try {
       await fetch(`/api/rooms/${code}/leave`, { method: "POST" });
@@ -66,6 +105,19 @@ export default function WaitingRoom() {
       console.error("[lobby] leave failed:", err);
     } finally {
       router.replace("/");
+    }
+  };
+
+  const handleStart = async () => {
+    try {
+      const res = await fetch(`/api/rooms/${code}/start`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Start failed: ${err.error?.message ?? res.status}`);
+      }
+      // Phase flip arrives via Realtime; the useEffect above navigates.
+    } catch (err) {
+      console.error("[lobby] start failed:", err);
     }
   };
 
@@ -80,6 +132,13 @@ export default function WaitingRoom() {
   const displayRoomCode = code || "—";
   const emptySlots = Math.max(0, MAX_PLAYERS - players.length);
   const totalSeats = players.length + emptySlots;
+
+  const startDisabled = !me?.isHost || players.length < 2;
+  const startHint = loading
+    ? "Connecting…"
+    : me?.isHost
+      ? (players.length < 2 ? "Need at least 2 players to start." : "All set — press Start when ready.")
+      : "Host can start when all players are ready.";
 
   return (
     <Window
@@ -222,11 +281,11 @@ export default function WaitingRoom() {
             <Button variant="ghost" onClick={handleLeave}>
               Leave room
             </Button>
-            <Button variant="primary" disabled>
+            <Button variant="primary" disabled={startDisabled} onClick={handleStart}>
               Start game →
             </Button>
           </div>
-          <p className={styles.hint}>Host can start when all players are ready.</p>
+          <p className={styles.hint}>{startHint}</p>
         </section>
       </div>
     </Window>

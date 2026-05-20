@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getBrowserClient } from '@/lib/supabase/browser';
-import { roomChannel, playersChannel } from './channels';
+import { roomChannel, playersChannel, submissionsChannel, chainScoresChannel } from './channels';
 
 export type RoomRow = {
   id: string;
@@ -21,53 +21,86 @@ export type PlayerRow = {
   seat_index: number | null;
   created_at: string;
 };
+export type SubmissionRow = {
+  id: string;
+  room_id: string;
+  round_num: number;
+  chain_index: number;
+  author_id: string | null;
+  round_type: 'code' | 'describe';
+  content: string;
+  language: 'python' | 'javascript' | 'java' | null;
+  created_at: string;
+};
+export type ChainScoreRow = {
+  room_id: string;
+  chain_index: number;
+  status: 'pending' | 'done' | 'failed';
+  overall_score: number | null;
+  notes: string | null;
+  updated_at: string;
+};
 
 export type UseRoomState = {
   room: RoomRow | null;
   players: PlayerRow[];
+  submissions: SubmissionRow[];
+  chainScores: ChainScoreRow[];
   loading: boolean;
   error: string | null;
 };
 
 /**
- * Subscribe to a single room's `rooms` row + the `players` list filtered
- * by `room_id`. Re-renders the calling component whenever either changes.
- * Pass `null` for `roomId` to skip subscriptions (e.g. before navigation).
+ * Subscribe to a single room's `rooms` row + the `players` list + the
+ * `submissions` list + the `chain_scores` list, all filtered by
+ * `room_id`. Re-renders the calling component whenever any of them
+ * changes. Pass `null` for `roomId` to skip subscriptions (e.g. before
+ * navigation).
  */
 export function useRoom(roomId: string | null): UseRoomState {
   const [state, setState] = useState<UseRoomState>({
     room: null,
     players: [],
+    submissions: [],
+    chainScores: [],
     loading: !!roomId,
     error: null,
   });
 
   useEffect(() => {
     if (!roomId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time reset when the room id is cleared
-      setState({ room: null, players: [], loading: false, error: null });
+      setState({ room: null, players: [], submissions: [], chainScores: [], loading: false, error: null });
       return;
     }
     const sb = getBrowserClient();
     let cancelled = false;
 
     (async () => {
-      const [roomRes, playersRes] = await Promise.all([
+      const [roomRes, playersRes, submissionsRes, chainScoresRes] = await Promise.all([
         sb.from('rooms').select('*').eq('id', roomId).maybeSingle(),
         sb.from('players').select('*').eq('room_id', roomId).order('created_at', { ascending: true }),
+        sb.from('submissions').select('*').eq('room_id', roomId).order('created_at', { ascending: true }),
+        sb.from('chain_scores').select('*').eq('room_id', roomId).order('chain_index', { ascending: true }),
       ]);
       if (cancelled) return;
-      if (roomRes.error || playersRes.error) {
+      if (roomRes.error || playersRes.error || submissionsRes.error || chainScoresRes.error) {
         setState((s) => ({
           ...s,
           loading: false,
-          error: roomRes.error?.message ?? playersRes.error?.message ?? 'unknown',
+          error:
+            roomRes.error?.message ??
+            playersRes.error?.message ??
+            submissionsRes.error?.message ??
+            chainScoresRes.error?.message ??
+            'unknown',
         }));
         return;
       }
       setState({
-        room: (roomRes.data as RoomRow | null),
+        room: roomRes.data as RoomRow | null,
         players: (playersRes.data ?? []) as PlayerRow[],
+        submissions: (submissionsRes.data ?? []) as SubmissionRow[],
+        chainScores: (chainScoresRes.data ?? []) as ChainScoreRow[],
         loading: false,
         error: null,
       });
@@ -112,10 +145,61 @@ export function useRoom(roomId: string | null): UseRoomState {
       )
       .subscribe();
 
+    const submissionsCh = sb
+      .channel(submissionsChannel(roomId))
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'submissions', filter: `room_id=eq.${roomId}` },
+        (payload) => {
+          setState((s) => {
+            const list = [...s.submissions];
+            if (payload.eventType === 'INSERT') {
+              list.push(payload.new as SubmissionRow);
+            } else if (payload.eventType === 'UPDATE') {
+              const idx = list.findIndex((r) => r.id === (payload.new as SubmissionRow).id);
+              if (idx >= 0) list[idx] = payload.new as SubmissionRow;
+            } else if (payload.eventType === 'DELETE') {
+              const id = (payload.old as SubmissionRow).id;
+              return { ...s, submissions: list.filter((r) => r.id !== id) };
+            }
+            list.sort((a, b) => a.created_at.localeCompare(b.created_at));
+            return { ...s, submissions: list };
+          });
+        },
+      )
+      .subscribe();
+
+    const chainScoresCh = sb
+      .channel(chainScoresChannel(roomId))
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chain_scores', filter: `room_id=eq.${roomId}` },
+        (payload) => {
+          setState((s) => {
+            const list = [...s.chainScores];
+            if (payload.eventType === 'INSERT') {
+              list.push(payload.new as ChainScoreRow);
+            } else if (payload.eventType === 'UPDATE') {
+              const idx = list.findIndex((r) => r.chain_index === (payload.new as ChainScoreRow).chain_index);
+              if (idx >= 0) list[idx] = payload.new as ChainScoreRow;
+              else list.push(payload.new as ChainScoreRow);
+            } else if (payload.eventType === 'DELETE') {
+              const ci = (payload.old as ChainScoreRow).chain_index;
+              return { ...s, chainScores: list.filter((r) => r.chain_index !== ci) };
+            }
+            list.sort((a, b) => a.chain_index - b.chain_index);
+            return { ...s, chainScores: list };
+          });
+        },
+      )
+      .subscribe();
+
     return () => {
       cancelled = true;
       sb.removeChannel(roomCh);
       sb.removeChannel(playersCh);
+      sb.removeChannel(submissionsCh);
+      sb.removeChannel(chainScoresCh);
     };
   }, [roomId]);
 
