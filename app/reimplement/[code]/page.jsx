@@ -1,102 +1,137 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Notepad from "@/components/notepad/Notepad";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
 import LanguagePicker from "@/components/game/LanguagePicker";
 import PhaseHUD from "@/components/game/PhaseHUD";
+import { useRoom } from "@/lib/realtime/useRoom";
+import { chainForPlayer } from "@/lib/game/seating";
 import styles from "./page.module.css";
 
-// Stubbed during Plan 2 migration (Task 1). The real round/lobby state
-// and draft persistence will be rewired against the new Realtime
-// architecture in later Plan 2/3 tasks.
-function useRound() {
-  return {
-    seed: null,
-    roundNum: null,
-    secondsLeft: null,
-    submittedCount: 0,
-    totalPlayers: 0,
-    hasSubmitted: false,
-    submit: async () => {},
-  };
+function useRoomIdFromCode(code) {
+  const [roomId, setRoomId] = useState(null);
+  const [notFound, setNotFound] = useState(false);
+  useEffect(() => {
+    if (!code) return;
+    let cancelled = false;
+    (async () => {
+      const { getBrowserClient } = await import("@/lib/supabase/browser");
+      const sb = getBrowserClient();
+      const { data, error } = await sb
+        .from("rooms").select("id").eq("code", code).maybeSingle();
+      if (cancelled) return;
+      if (error || !data) { setNotFound(true); return; }
+      setRoomId(data.id);
+    })();
+    return () => { cancelled = true; };
+  }, [code]);
+  return { roomId, notFound };
 }
-function useLobby() {
-  return { roomId: null };
+
+function useMe(code) {
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    if (!code) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/rooms/${code}/me`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setMe(data);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [code]);
+  return me;
 }
-function loadDraft() {
-  return null;
+
+function routeForPhase(phase, code) {
+  switch (phase) {
+    case "lobby":      return `/waiting-room/${code}`;
+    case "writing":    return `/editor/${code}`;
+    case "describing": return `/describe/${code}`;
+    case "reveal":     return `/reveal/${code}`;
+    default:           return null;
+  }
 }
-function saveDraft() {}
-function clearDraft() {}
 
 const FALLBACK_DESCRIPTION = "Waiting for the previous player's description…";
 
-export default function ReimplementDemo() {
-  const {
-    roundNum,
-    seed,
-    secondsLeft,
-    submittedCount,
-    totalPlayers,
-    hasSubmitted,
-    submit,
-  } = useRound();
-  const { roomId } = useLobby();
+export default function ReimplementPage() {
+  const params = useParams();
+  const router = useRouter();
+  const code = (params?.code || "").toString().toUpperCase();
 
-  const receivedDescription = seed?.receivedContent ?? FALLBACK_DESCRIPTION;
+  const { roomId, notFound } = useRoomIdFromCode(code);
+  const { room, players, submissions, loading, error } = useRoom(roomId);
+  const me = useMe(code);
 
-  const [language, setLanguage] = useState("python");
+  useEffect(() => {
+    if (!room || !code) return;
+    const target = routeForPhase(room.phase, code);
+    if (target) router.replace(target);
+  }, [room?.phase, code, router]);
+
+  useEffect(() => { if (notFound) router.replace("/"); }, [notFound, router]);
+
+  const playerCount = players.length;
+  const round = room?.current_round ?? 3;
+  const seatIndex = me?.seatIndex;
+  const myChain = (typeof seatIndex === "number" && playerCount > 0)
+    ? chainForPlayer(seatIndex, round, playerCount)
+    : null;
+  const seedRow = myChain != null
+    ? submissions.find((s) => s.round_num === round - 1 && s.chain_index === myChain)
+    : null;
+  const receivedDescription = seedRow?.content ?? FALLBACK_DESCRIPTION;
+
+  const hasSubmitted = me?.playerId
+    ? submissions.some((s) => s.round_num === round && s.author_id === me.playerId)
+    : false;
+  const submittedCount = submissions.filter((s) => s.round_num === round).length;
+
+  const [language] = useState("python");
   const [reconstructedCode, setReconstructedCode] = useState("");
-  const [lastReceivedDescription, setLastReceivedDescription] =
-    useState(receivedDescription);
 
-  // When the seed flips to a new round's description, restore the draft for
-  // that (roomId, roundNum) if one was saved, otherwise start blank.
-  if (receivedDescription !== lastReceivedDescription) {
-    setLastReceivedDescription(receivedDescription);
-    const saved =
-      roomId && roundNum ? loadDraft(roomId, roundNum) : null;
-    setReconstructedCode(saved ?? "");
-  }
-
-  const handleCodeChange = (val) => {
-    setReconstructedCode(val);
-    if (roomId && roundNum) saveDraft(roomId, roundNum, val);
+  const handleSubmit = async () => {
+    if (!code) return;
+    try {
+      const res = await fetch(`/api/rooms/${code}/submit`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content: reconstructedCode, language }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Submit failed: ${err.error?.message ?? res.status}`);
+      }
+    } catch (err) {
+      console.error("[reimplement] submit failed:", err);
+    }
   };
 
-  const handleSubmit = () => {
-    submit(reconstructedCode, language)
-      .then(() => clearDraft())
-      .catch((err) => console.error("[reimplement] submit failed:", err));
-  };
+  if (loading || !room) return <div className={styles.stage}>Loading…</div>;
 
-  const solutionExt =
-    language === "javascript" ? "js" : language === "java" ? "java" : "py";
-  const displayTimer =
-    typeof secondsLeft === "number"
-      ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
-      : "—:—";
-  const readyCount = `${submittedCount} of ${totalPlayers || "—"} submitted`;
+  const solutionExt = language === "javascript" ? "js" : language === "java" ? "java" : "py";
 
   return (
     <div className={styles.stage}>
       <PhaseHUD
         phaseIndex={3}
-        phaseTotal={4}
+        phaseTotal={room.round_count ?? 3}
         title="Re-implement the function"
-        timer={displayTimer}
-        readyCount={readyCount}
-        submitLabel="Submit code"
-        onSubmit={handleSubmit}
+        timer="—:—"
+        readyCount={`${submittedCount} of ${playerCount} submitted`}
+        submitLabel={hasSubmitted ? "Waiting…" : "Submit code"}
+        onSubmit={hasSubmitted ? undefined : handleSubmit}
       />
 
-      {/* TODO: PhaseHUD does not currently accept a disabled prop. When wiring
-          real submit, add `disabled` to PhaseHUD's submit button and pass
-          `disabled={hasSubmitted}` here. */}
+      {error && <div role="alert">Realtime error: {error}</div>}
 
-      {/* Left: the description (read-only Notepad). */}
       <div className={styles.descWindow}>
         <Notepad
           fileName="received"
@@ -109,7 +144,6 @@ export default function ReimplementDemo() {
         />
       </div>
 
-      {/* Right: the editor where Player C writes their reconstruction. */}
       <div className={styles.codeWindow}>
         <Window
           title={`solution.${solutionExt} — Code Telephone`}
@@ -118,15 +152,10 @@ export default function ReimplementDemo() {
           width={580}
           height={460}
         >
-          <LanguagePicker
-            value={language}
-            onChange={setLanguage}
-            disabled={hasSubmitted}
-            name="reimplement-language"
-          />
+          <LanguagePicker value={language} disabled name="reimplement-language" />
           <CodeEditor
             value={reconstructedCode}
-            onChange={handleCodeChange}
+            onChange={setReconstructedCode}
             language={language}
             fileName="solution"
             height={428}
