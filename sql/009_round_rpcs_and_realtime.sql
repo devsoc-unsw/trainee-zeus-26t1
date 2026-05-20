@@ -24,9 +24,9 @@ DECLARE
   v_player_count int;
   v_prompt_count int;
 BEGIN
-  SELECT host_id, status::text, round_count
+  SELECT rooms.host_id, rooms.status::text, rooms.round_count
     INTO v_host_id, v_status, v_round_count
-    FROM rooms WHERE id = p_room_id FOR UPDATE;
+    FROM rooms WHERE rooms.id = p_room_id FOR UPDATE;
 
   IF v_host_id IS NULL THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND: no such room';
@@ -101,9 +101,9 @@ DECLARE
   v_next_phase   text;
 BEGIN
   -- Lock the room row so two concurrent submits can't double-advance.
-  SELECT phase, current_round, round_count
+  SELECT rooms.phase, rooms.current_round, rooms.round_count
     INTO v_phase, v_current, v_round_count
-    FROM rooms WHERE id = p_room_id FOR UPDATE;
+    FROM rooms WHERE rooms.id = p_room_id FOR UPDATE;
   IF v_phase IS NULL THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND: no such room';
   END IF;
@@ -189,7 +189,7 @@ LANGUAGE plpgsql AS $$
 DECLARE
   v_host_id uuid;
 BEGIN
-  SELECT host_id INTO v_host_id FROM rooms WHERE id = p_room_id FOR UPDATE;
+  SELECT rooms.host_id INTO v_host_id FROM rooms WHERE rooms.id = p_room_id FOR UPDATE;
   IF v_host_id IS NULL THEN
     RAISE EXCEPTION 'ROOM_NOT_FOUND: no such room';
   END IF;
