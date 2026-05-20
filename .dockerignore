@@ -3,9 +3,9 @@
 **/.env.local
 **/node_modules
 **/.next
-**/__pycache__
-**/.venv
-**/dist
-**/build
-**/*.pyc
+**/coverage
+**/.vercel
+**/legacy
+**/redesign
 **/docs
+**/.claude
