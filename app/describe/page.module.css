@@ -1,39 +1,55 @@
-/* ──────────────────────────────────────────────────────────────────────
-   Describe phase — multi-window desktop layout.
-   The stage is just an absolutely-positioned container; the windows
-   are placed in space via their own x/y props. Future drag support
-   will mutate those positions.
-   ────────────────────────────────────────────────────────────────────── */
-
-.stage {
-  position: relative;
-  width: 100%;
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
   height: 100%;
-  overflow: hidden;
+  min-height: 0;
 }
 
-/* ── Window-in animations, staggered ─────────────────────────────────── */
-.codeWindow,
-.notepadWindow {
-  animation: windowIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  transform-origin: center center;
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 8px;
 }
 
-.codeWindow {
-  animation-delay: 60ms;
+.paneHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
 }
 
-.notepadWindow {
-  animation-delay: 180ms;
+.tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-muted);
 }
 
-@keyframes windowIn {
-  from {
-    opacity: 0;
-    transform: scale(0.88) translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
+.tagYou {
+  background: linear-gradient(to bottom, #6abce8, #2a7ab8);
+  color: #fff;
+}
+
+.name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.paneBody {
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 820px) {
+  .split {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
   }
 }

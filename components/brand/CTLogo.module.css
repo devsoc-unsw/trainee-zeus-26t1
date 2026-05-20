@@ -1,0 +1,13 @@
+.lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  color: var(--text-strong);
+}
+
+.name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}

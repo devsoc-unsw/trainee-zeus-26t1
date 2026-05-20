@@ -1,90 +1,212 @@
-/* ──────────────────────────────────────────────────────────────────────
-   Superbar — the Win7 taskbar, always pinned at the bottom.
-   Built from: dark translucent base + diagonal sheen overlay +
-   1px top edge highlight. The orb sits flush at the left,
-   tasks fill the middle, system tray + show-desktop sliver at right.
-   ────────────────────────────────────────────────────────────────────── */
+/* Superbar — Win7 taskbar reimagined for the hybrid. CT logo lockup on
+   the left, dynamic taskbar items in the middle, mini system tray
+   (notifications, sound, clock, show-desktop strip) on the right. */
 
 .superbar {
   position: relative;
+  z-index: var(--z-superbar);
   flex: 0 0 auto;
-  height: 40px;
+  height: 46px;
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  padding: 0 0 0 4px;
   background: var(--superbar-bg);
-  backdrop-filter: blur(10px) saturate(120%);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
-  border-top: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-    0 -2px 6px rgba(0, 0, 0, 0.3);
-  z-index: 1000;
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border-top: 1px solid var(--superbar-edge);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.35),
+    0 -8px 24px rgba(10, 30, 60, 0.18);
+}
+:global([data-theme="dark"]) .superbar {
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.1),
+    0 -8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.sheen {
+  position: absolute;
+  inset: 0;
+  background: var(--glare);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 100%;
+  border-radius: 0;
+  transition: background-color 120ms;
+  color: inherit;
+}
+.brand:hover {
+  background: rgba(120, 200, 255, 0.15);
+}
+
+.sep {
+  width: 1px;
+  height: 28px;
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.15), transparent);
+  margin: 0 4px;
+}
+:global([data-theme="dark"]) .sep {
+  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.15), transparent);
+}
+
+.items {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  padding: 4px 4px;
+  flex: 1;
   overflow: hidden;
 }
 
-/* Diagonal sheen overlay — emulates the Win7 glass shine */
-.glare {
+.tbItem {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 12px;
+  border-radius: 6px;
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  transition: background 120ms, border-color 120ms;
+}
+
+.tbItemIcon {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.9;
+}
+
+.tbItemLabel {
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tbItem:hover {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.55), rgba(220, 240, 255, 0.5));
+  border-color: rgba(180, 210, 235, 0.7);
+}
+
+.tbItemActive {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(220, 240, 255, 0.5));
+  border-color: rgba(150, 190, 225, 0.85);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.tbItemGlow {
   position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0.18) 0%,
-      rgba(255, 255, 255, 0.05) 50%,
-      rgba(0, 0, 0, 0.08) 100%
-    ),
-    linear-gradient(
-      105deg,
-      transparent 25%,
-      rgba(255, 255, 255, 0.08) 45%,
-      rgba(255, 255, 255, 0.02) 55%,
-      transparent 75%
-    );
-  pointer-events: none;
-}
-
-.divider {
-  width: 1px;
-  margin: 4px 6px;
+  left: 6px;
+  right: 6px;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 2px;
   background: linear-gradient(
-    to bottom,
-    transparent,
-    rgba(255, 255, 255, 0.25) 30%,
-    rgba(255, 255, 255, 0.25) 70%,
-    transparent
+    to right,
+    rgba(74, 168, 216, 0) 0%,
+    rgba(74, 168, 216, 0.95) 30%,
+    rgba(74, 168, 216, 0.95) 70%,
+    rgba(74, 168, 216, 0) 100%
   );
+  filter: blur(0.4px);
+  box-shadow: 0 0 6px rgba(74, 168, 216, 0.7);
 }
 
-.tasks {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  flex: 1 1 auto;
-  padding: 2px 0;
+.tbGlyph {
+  color: var(--aero-700);
+}
+:global([data-theme="dark"]) .tbGlyph {
+  color: var(--aero-300);
+}
+
+:global([data-theme="dark"]) .tbItem {
+  color: var(--text-body);
+}
+:global([data-theme="dark"]) .tbItem:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+:global([data-theme="dark"]) .tbItemActive {
+  background: rgba(120, 200, 255, 0.1);
+  border-color: rgba(120, 200, 255, 0.25);
 }
 
 .tray {
   display: flex;
   align-items: center;
-  padding: 0 8px 0 14px;
-  background:
-    linear-gradient(
-      to right,
-      transparent,
-      rgba(255, 255, 255, 0.05) 20%,
-      rgba(255, 255, 255, 0.05)
-    );
+  gap: 6px;
+  height: 100%;
+  padding: 0 4px 0 10px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.45) 30%,
+    rgba(255, 255, 255, 0.45) 100%
+  );
+  border-left: 1px solid rgba(0, 0, 0, 0.06);
+  color: var(--text-body);
+}
+:global([data-theme="dark"]) .tray {
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.04));
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Tiny show-desktop sliver at the far right (Win7 had this) */
-.peek {
-  width: 14px;
-  background: transparent;
-  border-left: 1px solid rgba(255, 255, 255, 0.18);
-  transition: background 120ms ease;
+.trayIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  color: var(--text-body);
+  opacity: 0.85;
 }
-.peek:hover {
+.trayIcon:hover {
+  background: rgba(0, 0, 0, 0.06);
+  opacity: 1;
+}
+:global([data-theme="dark"]) .trayIcon:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.showDesktop {
+  width: 6px;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+  flex: 0 0 auto;
+}
+.showDesktop:hover {
+  background: linear-gradient(
+    to right,
+    rgba(120, 200, 255, 0) 0%,
+    rgba(120, 200, 255, 0.4) 50%,
+    rgba(120, 200, 255, 0) 100%
+  );
+}
+:global([data-theme="dark"]) .showDesktop {
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Narrow viewports — drop notification/sound icons to keep the clock + task pill visible */
+@media (max-width: 640px) {
+  .tray .trayIcon {
+    display: none;
+  }
+  .tbItemLabel {
+    max-width: 96px;
+  }
 }

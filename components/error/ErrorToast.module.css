@@ -1,8 +1,4 @@
-/* Floating Win7-style balloon notification.
-   Pinned bottom-right. The Superbar is 40px tall (z-index: 1000) and
-   pinned to the viewport bottom; `bottom: 64px` here = 40px Superbar
-   + 24px gap. z-index: 10000 keeps the toast above every window. */
-
+/* Floating Aero toast notification — pinned bottom-right above the Superbar. */
 .toastWrap {
   position: fixed;
   bottom: 64px;
@@ -13,14 +9,8 @@
 }
 
 @keyframes toastIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .toast {
@@ -29,10 +19,10 @@
   gap: 10px;
   min-width: 280px;
   max-width: 420px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   pointer-events: auto;
   font-family: var(--font-ui);
-  color: var(--text-on-glass);
+  color: var(--text-strong);
 }
 
 .iconBox {
@@ -42,11 +32,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 3px;
-  background: var(--close-btn);
+  border-radius: 5px;
+  background: linear-gradient(to bottom, #d35749 0%, #b3361f 55%, #9b2813 100%);
   color: #fff;
   font-weight: 700;
-  font-size: var(--fs-section);
+  font-size: 14px;
   line-height: 1;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
@@ -58,34 +48,44 @@
 }
 
 .title {
-  font-size: var(--fs-body);
+  font-size: 12.5px;
   font-weight: 600;
   margin-bottom: 2px;
+  color: var(--text-strong);
 }
 
 .message {
-  font-size: var(--fs-chrome);
+  font-size: 11.5px;
   color: var(--text-muted);
   word-wrap: break-word;
 }
 
 .dismiss {
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
-  color: var(--text-on-glass);
-  font-size: var(--fs-section);
+  color: var(--text-muted);
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
-  border-radius: 2px;
+  border-radius: 4px;
   padding: 0;
 }
 
-.dismiss:hover {
-  background: rgba(0, 0, 0, 0.08);
+.dismiss:hover,
+.dismiss:focus-visible {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-strong);
+  outline: none;
+}
+
+:global([data-theme="dark"]) .dismiss:hover,
+:global([data-theme="dark"]) .dismiss:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-body);
 }

@@ -1,163 +1,111 @@
-import { useEffect, useRef, useState } from "react";
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./Window.module.css";
 
-/* Clamping for drag positions. Keep at least MIN_TITLEBAR_VISIBLE pixels
-   of titlebar inside the viewport horizontally, and never let the
-   titlebar slip under the Superbar at the bottom or above the top of the
-   desktop. The two constants mirror values pinned in the corresponding
-   CSS files:
-   - TITLEBAR_HEIGHT matches `.titlebar { height: 30px }` in Window.module.css.
-   - SUPERBAR_HEIGHT matches `.superbar { height: 40px }` in Superbar.module.css.
-   If either is changed, update these too. */
-const TITLEBAR_HEIGHT = 30;
-const SUPERBAR_HEIGHT = 40;
+const TITLEBAR_HEIGHT = 28;
+const SUPERBAR_HEIGHT = 46;
+const MENUBAR_HEIGHT = 26;
 const MIN_TITLEBAR_VISIBLE = 80;
 
-function clampPosition(x, y, windowWidth) {
+function clampPos(x, y, width) {
   const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
   const vh = typeof window !== "undefined" ? window.innerHeight : 1080;
-
-  const w = typeof windowWidth === "number" ? windowWidth : 0;
-
-  /* Horizontal: at least MIN_TITLEBAR_VISIBLE px of titlebar must stay
-     inside the viewport on each side. Right edge of window can go to
-     vw - MIN_TITLEBAR_VISIBLE; left edge can go down to
-     MIN_TITLEBAR_VISIBLE - w. */
+  const w = typeof width === "number" ? width : 320;
   const minX = MIN_TITLEBAR_VISIBLE - w;
   const maxX = vw - MIN_TITLEBAR_VISIBLE;
-  const clampedX = Math.min(maxX, Math.max(minX, x));
-
-  /* Vertical: titlebar top can't go above 0 (top of desktop) and the
-     titlebar's bottom can't slip under the Superbar. */
-  const minY = 0;
+  const minY = MENUBAR_HEIGHT;
   const maxY = vh - SUPERBAR_HEIGHT - TITLEBAR_HEIGHT;
-  const clampedY = Math.min(maxY, Math.max(minY, y));
-
-  return { x: clampedX, y: clampedY };
+  return {
+    x: Math.min(maxX, Math.max(minX, x)),
+    y: Math.min(maxY, Math.max(minY, y)),
+  };
 }
 
-/* Window control icons rendered as inline SVGs so they stay crisp.
-   They sit centred inside the 44×22 control buttons. */
-function IconMinimize() {
-  return (
-    <svg viewBox="0 0 12 12" aria-hidden="true">
-      <rect x="2" y="8" width="8" height="1.5" fill="currentColor" />
-    </svg>
-  );
-}
-function IconMaximize() {
-  return (
-    <svg viewBox="0 0 12 12" aria-hidden="true">
-      <rect
-        x="1.5"
-        y="2"
-        width="9"
-        height="8"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.3"
-      />
-      <rect x="1.5" y="2" width="9" height="1.5" fill="currentColor" />
-    </svg>
-  );
-}
-function IconClose() {
-  return (
-    <svg viewBox="0 0 12 12" aria-hidden="true">
-      <path
-        d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+function resolveCentered(width, height) {
+  if (typeof window === "undefined") return { x: 60, y: 60 };
+  const w = typeof width === "number" ? width : 720;
+  const h = typeof height === "number" ? height : 480;
+  return {
+    x: Math.max(8, Math.round((window.innerWidth - w) / 2)),
+    y: Math.max(
+      MENUBAR_HEIGHT + 4,
+      Math.round((window.innerHeight - h - SUPERBAR_HEIGHT) / 2) + MENUBAR_HEIGHT,
+    ),
+  };
 }
 
-function DefaultWindowIcon() {
-  /* Small Win7-style flag for the title bar app icon */
-  return (
-    <svg viewBox="0 0 24 24" className={styles.icon} aria-hidden="true">
-      <g transform="translate(3 5) skewY(-8)">
-        <rect x="0"  y="0" width="8" height="7" fill="#F25022" />
-        <rect x="9"  y="0" width="8" height="7" fill="#7FBA00" />
-        <rect x="0"  y="8" width="8" height="7" fill="#00A4EF" />
-        <rect x="9"  y="8" width="8" height="7" fill="#FFB900" />
-      </g>
-    </svg>
-  );
-}
-
-/* Build the CSS style block from positioning props. If x/y are provided
-   the window is absolutely positioned on the desktop. Otherwise the parent
-   layout (e.g. flex/grid centring) controls placement. When `draggable`
-   is on, the live position comes from internal state, not the props. */
-function positionStyle({ x, y, width, height, zIndex }) {
-  const px = (v) => (typeof v === "number" ? `${v}px` : v);
-  const style = {};
-  if (x !== undefined || y !== undefined) {
-    style.position = "absolute";
-    if (x !== undefined) style.left = px(x);
-    if (y !== undefined) style.top = px(y);
-  }
-  if (width !== undefined) style.width = px(width);
-  if (height !== undefined) style.height = px(height);
-  if (zIndex !== undefined) style.zIndex = zIndex;
-  return Object.keys(style).length > 0 ? style : undefined;
-}
-
+/* Window — Win7 Aero title-bar gradient + macOS traffic lights on the LEFT.
+   Draggable from the title bar (mouse), double-click to toggle maximize. */
 export default function Window({
   title,
+  subtitle,
+  icon,
   children,
-  width,
+  width = 720,
   height,
+  minHeight,
   x,
   y,
-  menubar,
-  icon,
+  centered,
+  active = true,
+  toolbar,
+  flush = false,
+  noPadding = false,
   className = "",
   zIndex,
   onActivate,
-  draggable = false,
+  onClose,
+  onMin,
+  onMax,
+  draggable = true,
 }) {
-  const Icon = icon ?? <DefaultWindowIcon />;
+  const shouldCenter =
+    centered || (x === undefined && y === undefined && typeof window !== "undefined");
 
-  /* Internal position state. Seeded from x/y props on mount. After
-     mount the props are ignored — the Window owns its position. Numeric
-     x/y are required for drag to work (otherwise the seeded value is
-     undefined and the math is meaningless). */
-  const [pos, setPos] = useState({
-    x: typeof x === "number" ? x : 0,
-    y: typeof y === "number" ? y : 0,
+  const [pos, setPos] = useState(() => {
+    if (typeof window === "undefined") return { x: 0, y: 0 };
+    if (shouldCenter) return resolveCentered(width, height);
+    return { x: x ?? 80, y: y ?? 80 };
   });
-  const [dragging, setDragging] = useState(false);
-
-  /* Drag origin: cursor position and window position at the moment of
-     pointerdown. Kept in a ref because it does not affect rendering. */
+  const [mounted, setMounted] = useState(false);
+  const [maximized, setMaximized] = useState(false);
+  const draggedRef = useRef(false);
   const dragOrigin = useRef(null);
+  const [dragging, setDragging] = useState(false);
+  const [activeZ, setActiveZ] = useState(0);
 
-  /* On viewport resize, re-clamp the current position so the titlebar
-     stays reachable. Only meaningful for draggable windows; the listener
-     is attached only in that case. */
+  /* Re-resolve initial position on mount so SSR (where window is undefined)
+     hands off cleanly to a real client-computed center. */
   useEffect(() => {
-    if (!draggable) return;
+    setMounted(true);
+    if (shouldCenter && !draggedRef.current) {
+      setPos(resolveCentered(width, height));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* Re-center on viewport resize while the user hasn't dragged yet. */
+  useEffect(() => {
     const onResize = () => {
-      setPos((p) => clampPosition(p.x, p.y, width));
+      if (maximized) return;
+      if (draggedRef.current) {
+        setPos((p) => clampPos(p.x, p.y, width));
+      } else if (shouldCenter) {
+        setPos(resolveCentered(width, height));
+      }
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [draggable, width]);
+  }, [shouldCenter, width, height, maximized]);
 
-  const liveX = draggable ? pos.x : x;
-  const liveY = draggable ? pos.y : y;
-
-  const handlePointerDown = (e) => {
+  const handleTitlePointerDown = (e) => {
+    if (e.target.closest(`.${styles.tl}`)) return;
+    if (e.button !== 0) return;
+    if (maximized) return;
     if (!draggable) return;
-    /* Don't start a drag if the pointer landed on one of the control
-       buttons (min/max/close). They keep working as buttons. */
-    if (e.target.closest("button")) return;
-
-    e.currentTarget.setPointerCapture(e.pointerId);
+    draggedRef.current = true;
+    setActiveZ((z) => z + 1);
     dragOrigin.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -165,60 +113,123 @@ export default function Window({
       originY: pos.y,
     };
     setDragging(true);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
   };
 
-  const handlePointerMove = (e) => {
+  const handleTitlePointerMove = (e) => {
     if (!dragging || !dragOrigin.current) return;
     const { startX, startY, originX, originY } = dragOrigin.current;
-    const nextX = originX + e.clientX - startX;
-    const nextY = originY + e.clientY - startY;
-    setPos(clampPosition(nextX, nextY, width));
+    setPos(clampPos(originX + e.clientX - startX, originY + e.clientY - startY, width));
   };
 
-  const handlePointerUp = (e) => {
+  const handleTitlePointerUp = (e) => {
     if (!dragging) return;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
     dragOrigin.current = null;
     setDragging(false);
   };
 
+  const handleMax = useCallback(() => {
+    setMaximized((m) => !m);
+    onMax?.();
+  }, [onMax]);
+
+  const dynamicStyle = maximized
+    ? {
+        left: 8,
+        top: MENUBAR_HEIGHT + 4,
+        width: "calc(100vw - 16px)",
+        height: `calc(100vh - ${MENUBAR_HEIGHT + SUPERBAR_HEIGHT + 8}px)`,
+      }
+    : {
+        left: pos.x,
+        top: pos.y,
+        width: typeof width === "number" ? `${width}px` : width,
+        height: typeof height === "number" ? `${height}px` : height,
+        minHeight: typeof minHeight === "number" ? `${minHeight}px` : minHeight,
+      };
+
   return (
     <div
-      className={`${styles.window} ${className} ${dragging ? styles.dragging : ""}`}
-      style={positionStyle({ x: liveX, y: liveY, width, height, zIndex })}
-      onPointerDownCapture={onActivate}
+      className={`${styles.win} ${active ? styles.winActive : ""} ${maximized ? styles.winMax : ""} ${dragging ? styles.dragging : ""} ${mounted ? styles.mounted : ""} ${className}`}
+      style={{ ...dynamicStyle, zIndex: zIndex ?? 200 + activeZ }}
+      onPointerDownCapture={() => {
+        setActiveZ((z) => z + 1);
+        onActivate?.();
+      }}
     >
       <div
-        className={`${styles.titlebar} ${draggable ? styles.titlebarDraggable : ""}`}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        className={`${styles.titlebar} ${active ? "" : styles.titlebarInactive}`}
+        onPointerDown={handleTitlePointerDown}
+        onPointerMove={handleTitlePointerMove}
+        onPointerUp={handleTitlePointerUp}
+        onPointerCancel={handleTitlePointerUp}
+        onDoubleClick={handleMax}
       >
-        <span className={styles.titlebarTopGlare} aria-hidden />
-        <span className={styles.titlebarSheen} aria-hidden />
-
-        <div className={styles.titleSlot}>
-          <span className={styles.iconWrap}>{Icon}</span>
-          <span className={styles.title}>{title}</span>
+        <div className={styles.lights} aria-hidden={!active}>
+          <button
+            type="button"
+            className={`${styles.tl} ${styles.tlClose}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose?.();
+            }}
+            aria-label="Close window"
+          >
+            <svg viewBox="0 0 8 8" width="6" height="6" aria-hidden="true">
+              <path d="M1 1 L7 7 M7 1 L1 7" stroke="#5a0e0a" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={`${styles.tl} ${styles.tlMin}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMin?.();
+            }}
+            aria-label="Minimize window"
+          >
+            <svg viewBox="0 0 8 8" width="6" height="6" aria-hidden="true">
+              <path d="M1 4 H7" stroke="#5a3500" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={`${styles.tl} ${styles.tlMax}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleMax();
+            }}
+            aria-label={maximized ? "Restore window" : "Maximize window"}
+          >
+            <svg viewBox="0 0 8 8" width="6" height="6" aria-hidden="true">
+              <path
+                d="M2 6 L2 2 L6 2 M6 2 L2 6"
+                stroke="#0c3d10"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                fill="none"
+              />
+            </svg>
+          </button>
         </div>
 
-        <div className={styles.controls}>
-          <button className={styles.ctrl} aria-label="Minimize">
-            <IconMinimize />
-          </button>
-          <button className={styles.ctrl} aria-label="Maximize">
-            <IconMaximize />
-          </button>
-          <button className={`${styles.ctrl} ${styles.close}`} aria-label="Close">
-            <IconClose />
-          </button>
+        <div className={styles.titleInner}>
+          {icon && <span className={styles.icon}>{icon}</span>}
+          <span className={styles.titleText}>{title}</span>
+          {subtitle && <span className={styles.titleSub}>— {subtitle}</span>}
         </div>
+
+        <span className={styles.titleGlare} aria-hidden="true" />
       </div>
 
-      {menubar && <div className={styles.menubar}>{menubar}</div>}
+      {toolbar && <div className={styles.toolbar}>{toolbar}</div>}
 
-      <div className={styles.content}>{children}</div>
+      <div
+        className={`${styles.body} ${flush ? styles.bodyFlush : ""} ${noPadding ? styles.bodyNoPad : ""}`}
+      >
+        {children}
+      </div>
     </div>
   );
 }

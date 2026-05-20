@@ -1,166 +1,288 @@
-.stage {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 32px 16px 80px;  /* bottom padding clears the Superbar */
-}
-
-.body {
-  padding: 20px 24px 18px;
+.reveal {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  color: var(--text-on-glass);
-  font-family: var(--font-ui);
-  font-size: var(--fs-body, 12px);
+  gap: 14px;
+  height: 100%;
 }
 
-.section {
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+  margin: 0;
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+/* ── Chain ───────────────────────────────────────────────────────────── */
+.chainRow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 4px;
+  flex-wrap: wrap;
+}
+
+.chainNode {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 2px 6px rgba(0, 30, 60, 0.06);
+}
+:global([data-theme="dark"]) .chainNode {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.chainNodeHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chainNodeName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.chainNodeStage {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.chainNodePreview {
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  color: var(--text-body);
+  background: rgba(0, 0, 0, 0.04);
+  padding: 6px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:global([data-theme="dark"]) .chainNodePreview {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chainArrow {
+  flex: 0 0 40px;
+  align-self: center;
+  opacity: 0.8;
+}
+
+/* ── Body: diff + score card ────────────────────────────────────────── */
+.body {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+.panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  min-height: 0;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.paneHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.paneTag {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+/* ── Score card ──────────────────────────────────────────────────────── */
+.scoreCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 4px 14px rgba(0, 30, 60, 0.1);
+}
+:global([data-theme="dark"]) .scoreCard {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.scoreBlock {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.sectionTitle {
-  margin: 0;
-  font-size: var(--fs-section, 14px);
-  font-weight: var(--fw-semibold, 600);
-}
-
-.emptyMessage {
-  margin: 0;
-  padding: 24px 0;
-  text-align: center;
-  color: var(--text-on-glass-muted, rgba(255, 255, 255, 0.75));
-}
-
-/* ── Chain row ─────────────────────────────────────────────── */
-.chain {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-}
-
-.chainNode {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  min-width: 88px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 6px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-}
-
-.chainScoreNode {
-  /* same shape, but tinted */
-  background: rgba(210, 230, 248, 0.85);
-}
-
-.chainNodeLabel {
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.chainNodeName {
-  font-size: 11px;
-  font-weight: var(--fw-semibold, 600);
-}
-
-.chainStar {
-  font-size: 18px;
-  color: var(--w7-blue-500, #2a7ab8);
-}
-
-.chainArrow {
-  flex-shrink: 0;
-  color: var(--w7-blue-500, #2a7ab8);
-  font-size: 18px;
-  user-select: none;
-}
-
-/* ── Diff panel ────────────────────────────────────────────── */
-.diff {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.diffPanel {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.diffHeader {
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.diffHeader strong {
-  color: var(--text-on-glass);
-  text-transform: none;
-  letter-spacing: normal;
-  font-weight: var(--fw-semibold, 600);
-  margin-left: 4px;
-}
-
-/* ── Score ─────────────────────────────────────────────────── */
-.scoreWrap {
-  display: flex;
-  justify-content: center;
-  padding: 6px 0 2px;
-}
-
-/* ── ELO row ───────────────────────────────────────────────── */
-.eloRow {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.eloLabel {
-  font-size: 11px;
+.scoreLabel {
+  font-size: 10.5px;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.eloItem {
-  font-size: var(--fs-body, 12px);
-}
-
-.eloName {
-  font-weight: var(--fw-semibold, 600);
-  margin-right: 4px;
-}
-
-.eloPositive {
-  color: var(--status-done, #3a9a5c);
-}
-
-.eloNegative {
-  color: var(--status-danger, #d94f3d);
-}
-
-.eloUnknown {
-  color: var(--text-muted);
-}
-
-/* ── Footer ────────────────────────────────────────────────── */
-.footer {
+.scoreNum {
+  font-family: var(--font-display);
+  font-size: 64px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  color: var(--text-strong);
+  line-height: 1;
   display: flex;
-  justify-content: flex-end;
+  align-items: baseline;
+}
+
+.scoreNum span {
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.scoreBar {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(to bottom, #e6ecf3, #f4f7fa);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 1px 2px rgba(0, 30, 60, 0.1);
+  overflow: hidden;
+}
+:global([data-theme="dark"]) .scoreBar {
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.scoreBarFill {
+  height: 100%;
+  background: linear-gradient(to right, #4ec068, #2fa66a);
+  border-radius: 999px;
+  transition: width 90ms linear;
+}
+
+.scoreNote {
+  font-size: 11px;
+  color: #1d6e3f;
+  margin: 0;
+}
+:global([data-theme="dark"]) .scoreNote {
+  color: #6fdc92;
+}
+
+/* ── ELO ─────────────────────────────────────────────────────────────── */
+.elo {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+:global([data-theme="dark"]) .elo {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+.eloLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.eloRow {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  padding-top: 4px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--text-body);
+}
+
+.eloRow span:nth-child(2) {
+  flex: 1;
+  font-weight: 500;
+}
+
+.eloDelta {
+  font-family: var(--font-code);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.eloPos {
+  color: #1d6e3f;
+}
+.eloNeg {
+  color: #b3361f;
+}
+:global([data-theme="dark"]) .eloPos {
+  color: #5fd17e;
+}
+:global([data-theme="dark"]) .eloNeg {
+  color: #f08b7c;
+}
+
+/* ── Actions ─────────────────────────────────────────────────────────── */
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ── Narrow viewports ────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .body {
+    grid-template-columns: 1fr;
+  }
+  .panes {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
 }

@@ -1,180 +1,254 @@
-/* ──────────────────────────────────────────────────────────────────────
-   Lobby — stage centres the window on the desktop and animates it in.
-   ────────────────────────────────────────────────────────────────────── */
-
-.lobbyStage {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-}
-
-.lobbyStage > :global(div) {
-  animation: windowIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  transform-origin: center 60%;
-}
-
-@keyframes windowIn {
-  from {
-    opacity: 0;
-    transform: scale(0.86) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-/* ── Menubar items ──────────────────────────────────────────────────── */
-.menuItems {
+.tools {
   display: flex;
   align-items: center;
-  gap: 14px;
-  height: 100%;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  color: var(--text-on-glass);
-}
-.menuItems > span {
-  padding: 2px 6px;
-  border-radius: 2px;
-  cursor: default;
-  transition: background 100ms ease;
-}
-.menuItems > span:hover {
-  background: rgba(140, 180, 220, 0.35);
+  gap: 10px;
+  width: 100%;
+  flex-wrap: wrap;
 }
 
-/* ── Body ───────────────────────────────────────────────────────────── */
-.lobbyBody {
-  padding: 18px 22px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  background:
-    linear-gradient(to bottom, #fbfdff 0%, #eef4fa 100%);
-}
-
-.header {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-.roomLabel {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-}
-.roomCode {
-  font-family: var(--font-code);
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--w7-blue-900);
-  text-shadow: 0 1px 0 white;
-}
-
-/* ── Section ────────────────────────────────────────────────────────── */
-.section {
-  display: flex;
-  flex-direction: column;
+.toolsCodeWrap {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-}
-.sectionHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-.sectionTitle {
-  font-size: var(--fs-section);
-  font-weight: 600;
-  color: var(--text-on-glass);
-}
-.muted {
+  font-size: 11px;
   color: var(--text-muted);
-  font-weight: 400;
 }
 
-/* ── Player list ────────────────────────────────────────────────────── */
-.playerList {
-  padding: 4px;
+.code {
+  font-family: var(--font-code);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  color: var(--aero-700);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
+:global([data-theme="dark"]) .code {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--aero-300);
+}
+
+.copyBtn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.copyBtn:hover,
+.copyBtn:focus-visible {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-strong);
+  outline: none;
+}
+
+.toolsStatus {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────── */
+.lobby {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  height: 100%;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.h {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Players ─────────────────────────────────────────────────────────── */
+.playerList {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
 .playerUl {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  overflow: auto;
 }
+
 .playerRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
-  border-radius: 3px;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid transparent;
 }
-.playerRow + .playerRow {
-  border-top: 1px solid rgba(120, 150, 180, 0.18);
+
+.isHost {
+  background: rgba(220, 240, 255, 0.55);
+  border-color: rgba(120, 180, 220, 0.5);
 }
+
+.playerMain {
+  flex: 1;
+  min-width: 0;
+}
+
 .playerName {
+  font-size: 13px;
   font-weight: 600;
-  color: var(--text-on-glass);
+  color: var(--text-strong);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.hostTag {
+
+.badge {
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--w7-blue-700);
-  background: rgba(120, 200, 245, 0.18);
-  border: 1px solid rgba(120, 200, 245, 0.5);
-  padding: 1px 5px;
-  border-radius: 2px;
-}
-.spacer {
-  flex: 1 1 auto;
-}
-
-.empty {
-  opacity: 0.55;
-}
-.emptyAvatar {
-  width: 32px;
-  height: 32px;
-  border: 1px dashed rgba(120, 150, 180, 0.6);
+  padding: 1px 6px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.4);
-}
-.emptyText {
-  font-style: italic;
+  background: rgba(0, 0, 0, 0.08);
   color: var(--text-muted);
 }
 
-/* ── Language row ───────────────────────────────────────────────────── */
-.langRow {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 4px 2px;
-}
-
-/* ── Footer / actions row ───────────────────────────────────────────── */
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 4px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(120, 150, 180, 0.22);
-}
-.flex {
-  flex: 1 1 auto;
-}
-.hostNote {
+.playerMeta {
   font-size: 11px;
   color: var(--text-muted);
-  margin-right: 4px;
-  font-style: italic;
+}
+
+.empty .emptyAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px dashed rgba(0, 0, 0, 0.15);
+  flex: 0 0 auto;
+}
+
+.empty .playerName {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+:global([data-theme="dark"]) .playerRow {
+  background: rgba(255, 255, 255, 0.04);
+}
+:global([data-theme="dark"]) .isHost {
+  background: rgba(120, 180, 220, 0.1);
+  border-color: rgba(120, 180, 220, 0.25);
+}
+:global([data-theme="dark"]) .empty .emptyAvatar {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.lobbyError {
+  font-size: 11.5px;
+  color: var(--status-danger);
+  padding: 6px 10px;
+  background: rgba(217, 79, 61, 0.08);
+  border-radius: 6px;
+}
+
+/* ── Settings ────────────────────────────────────────────────────────── */
+.settings {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.setting {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settingLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.settingNote {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px dashed rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  margin: 0;
+}
+
+:global([data-theme="dark"]) .settingNote {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.radioRow {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+:global([data-theme="dark"]) .actions {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  margin: 0;
+}
+
+/* ── Narrow viewports ────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .lobby {
+    grid-template-columns: 1fr;
+  }
+  .toolsStatus {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
 }

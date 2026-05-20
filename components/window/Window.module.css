@@ -1,219 +1,205 @@
-/* ──────────────────────────────────────────────────────────────────────
-   Window — Aero App Window from app-window.svg.
-   Layered title bar (gradient base + upper glare overlay + diagonal
-   sheen), content area on white, drop shadow per Win7 windows.
-   ────────────────────────────────────────────────────────────────────── */
+/* Window — hybrid chrome (Win7 Aero title-bar + macOS traffic lights). */
 
-.window {
-  position: relative;
+.win {
+  position: absolute;
   display: flex;
   flex-direction: column;
-  background: white;
-  border-radius: var(--radius-window);
-  box-shadow:
-    var(--shadow-window),
-    0 0 0 1px rgba(255, 255, 255, 0.4),
-    0 0 0 2px rgba(0, 0, 0, 0.18);
+  border-radius: var(--r-4);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-window);
   overflow: hidden;
-  font-size: var(--fs-body);
-  color: var(--text-on-glass);
+  z-index: var(--z-window-active);
+  isolation: isolate;
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  pointer-events: auto;
+  opacity: 0;
 }
 
-/* ── Title bar ─────────────────────────────────────────────────────── */
+.mounted {
+  opacity: 1;
+}
+
+:global([data-theme="dark"]) .win {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
 .titlebar {
   position: relative;
-  height: 30px;
+  height: 28px;
   display: flex;
   align-items: center;
+  padding: 0 12px;
   background: var(--titlebar-active);
-  border-bottom: 1px solid rgba(140, 160, 185, 0.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  isolation: isolate;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+  user-select: none;
+  cursor: grab;
+  font-size: 12px;
+  color: var(--text-strong);
+  touch-action: none;
 }
 
-/* Upper-half lighter overlay — gives the bar its silvery sheen */
-.titlebarTopGlare {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.55),
-    rgba(255, 255, 255, 0)
-  );
-  pointer-events: none;
+.titlebar:active {
+  cursor: grabbing;
 }
 
-/* Diagonal sheen sweep — the moving-glass detail */
-.titlebarSheen {
+.winMax .titlebar {
+  cursor: default;
+}
+
+.titlebarInactive {
+  background: var(--titlebar-inactive);
+  opacity: 0.95;
+}
+
+:global([data-theme="dark"]) .titlebar {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.6);
+  color: var(--text-body);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.titleGlare {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    105deg,
-    transparent 25%,
-    rgba(255, 255, 255, 0.6) 45%,
-    rgba(255, 255, 255, 0.2) 55%,
-    transparent 72%
-  );
   pointer-events: none;
-  mix-blend-mode: screen;
+  background: var(--glare);
+  opacity: 0.6;
 }
 
-.titleSlot {
+.titleInner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 10px;
-  flex: 1 1 auto;
-  min-width: 0;
-  z-index: 1;
-}
-
-.icon {
-  width: 16px;
-  height: 16px;
-  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6));
-  flex: 0 0 auto;
-}
-
-.iconWrap {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-}
-
-.iconWrap svg {
-  width: 16px;
-  height: 16px;
-  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6));
-}
-
-.title {
-  font-family: var(--font-ui);
+  gap: 8px;
   font-size: 12px;
-  color: var(--titlebar-text);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  pointer-events: none;
   white-space: nowrap;
+  max-width: calc(100% - 120px);
+  overflow: hidden;
+}
+.titleText {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.titleSub {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.icon {
+  display: inline-flex;
+  align-items: center;
+}
 
-/* ── Window controls (min / max / close) ───────────────────────────── */
-.controls {
+.lights {
   display: flex;
-  align-items: stretch;
-  height: 100%;
-  z-index: 1;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  z-index: 2;
 }
 
-.ctrl {
-  position: relative;
-  width: 44px;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  color: var(--text-on-glass);
-  background:
-    linear-gradient(
-      to bottom,
-      var(--wc-grey-500) 79.4%,
-      var(--wc-grey-400) 93.3%
-    );
-  border: 1px solid var(--wc-grey-edge);
-  border-top: none;
-  border-bottom: none;
-  border-right: none;
-  cursor: pointer;
-  transition: background 140ms ease, filter 140ms ease;
-}
-
-.ctrl::before {
-  /* the small E7E7E7 top-edge highlight stripe from app-window.svg */
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(
-    to bottom,
-    var(--wc-highlight),
-    rgba(231, 231, 231, 0)
-  );
-  pointer-events: none;
-}
-
-.ctrl svg {
+.tl {
   width: 12px;
   height: 12px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.15),
+    0 0 0 0.5px rgba(0, 0, 0, 0.2);
+  transition: filter 120ms;
+  padding: 0;
+  border: none;
+  cursor: pointer;
 }
 
-.ctrl:hover {
-  background:
-    linear-gradient(
-      to bottom,
-      rgba(140, 180, 220, 0.5) 0%,
-      rgba(100, 150, 200, 0.45) 100%
-    );
+.tl svg {
+  opacity: 0;
+  transition: opacity 120ms;
 }
 
-.close {
-  color: white;
-  background: var(--close-btn);
-  border-left: 1px solid rgba(120, 30, 12, 0.6);
-  border-right: 1px solid rgba(120, 30, 12, 0.6);
+.win:hover .tl svg,
+.tl:focus-visible svg {
+  opacity: 1;
 }
 
-.close:hover {
-  filter: brightness(1.15) saturate(1.1);
+.tlClose {
+  background: radial-gradient(circle at 30% 30%, #ff7e76, #e0443e);
 }
-
-.close:active {
+.tlMin {
+  background: radial-gradient(circle at 30% 30%, #ffd25e, #dea123);
+}
+.tlMax {
+  background: radial-gradient(circle at 30% 30%, #5be565, #1aab29);
+}
+.tl:hover {
+  filter: brightness(1.05);
+}
+.tl:active {
   filter: brightness(0.92);
 }
 
-/* ── Menubar (optional, e.g. "File Edit View Help") ────────────────── */
-.menubar {
+.toolbar {
+  padding: 6px 10px;
   display: flex;
   align-items: center;
-  height: 22px;
-  padding: 0 6px;
-  background: linear-gradient(to bottom, #e8edf3, #d4dce4);
-  border-bottom: 1px solid rgba(140, 160, 185, 0.4);
-  font-size: 11px;
-  color: var(--text-on-glass);
+  gap: 8px;
+  background: linear-gradient(to bottom,
+    rgba(255, 255, 255, 0.5),
+    rgba(255, 255, 255, 0.3));
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-wrap: wrap;
+}
+:global([data-theme="dark"]) .toolbar {
+  background: linear-gradient(to bottom,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.02));
+  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
 }
 
-/* ── Content area ──────────────────────────────────────────────────── */
-.content {
+.body {
   flex: 1 1 auto;
   position: relative;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.content > * {
-  flex: 1 1 auto;
+  overflow: auto;
+  background: var(--glass-bg-strong);
+  padding: 18px;
   min-height: 0;
 }
-
-/* ── Drag state ────────────────────────────────────────────────────── */
-/* Applied to the titlebar when the Window is opted into drag via the
-   `draggable` prop. The cursor change is the only visual hint that the
-   titlebar is grabbable. The control buttons (.ctrl) override this with
-   their own cursor: pointer. */
-.titlebarDraggable {
-  cursor: grab;
+.bodyFlush {
+  padding: 0;
+  background: var(--neutral-0);
+}
+.bodyNoPad {
+  padding: 0;
+}
+:global([data-theme="dark"]) .body {
+  background: rgba(20, 26, 36, 0.78);
+}
+:global([data-theme="dark"]) .bodyFlush {
+  background: var(--neutral-50);
 }
 
-/* Applied to the outer `.window` element while a drag is in progress.
-   Forces the grabbing cursor everywhere inside and prevents text from
-   being selected when the pointer drifts over the content area. */
 .dragging,
 .dragging * {
   cursor: grabbing !important;
   user-select: none;
+}
+
+/* Narrow viewports — windows fill the viewport edge-to-edge with a hair of margin */
+@media (max-width: 720px) {
+  .win:not(.winMax) {
+    left: 4px !important;
+    width: calc(100vw - 8px) !important;
+  }
 }

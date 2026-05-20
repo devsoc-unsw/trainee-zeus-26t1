@@ -10,6 +10,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The redesign prototype is a single-file reference, not actual app
+    // code. Components attach to window globals (Babel inline scripts),
+    // so ESLint can't statically resolve them.
+    "redesign/**",
   ]),
 ]);
 

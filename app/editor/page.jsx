@@ -1,10 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
 import LanguagePicker from "@/components/game/LanguagePicker";
-import Button from "@/components/input/Button";
+import GameShell from "@/components/game/GameShell";
+import { CTLogoMark } from "@/components/brand/CTLogo";
 import styles from "./page.module.css";
 
 // Stubbed during Plan 2 migration (Task 1). The real round/lobby state
@@ -13,10 +15,10 @@ import styles from "./page.module.css";
 function useRound() {
   return {
     seed: null,
-    roundNum: null,
-    secondsLeft: null,
+    roundNum: 1,
+    secondsLeft: 180,
     submittedCount: 0,
-    totalPlayers: 0,
+    totalPlayers: 4,
     hasSubmitted: false,
     submit: async () => {},
   };
@@ -30,34 +32,25 @@ function loadDraft() {
 function saveDraft() {}
 function clearDraft() {}
 
-const FALLBACK_PROMPT = "Waiting for prompt…";
 const FALLBACK_STARTER = "# write your solution here\n";
+const DEFAULT_PLAYERS = [
+  { name: "Jordan", you: false, status: "submitted", statusText: "Submitted" },
+  { name: "Amrita", you: false, status: "submitted", statusText: "Submitted" },
+  { name: "Lukas", you: false, status: "typing", statusText: "Writing…" },
+  { name: "You", you: true, status: "typing", statusText: "Your turn" },
+];
 
-export default function EditorDemo() {
-  const {
-    roundNum,
-    seed,
-    secondsLeft,
-    submittedCount,
-    totalPlayers,
-    hasSubmitted,
-    submit,
-  } = useRound();
+export default function EditorPage() {
+  const router = useRouter();
+  const { roundNum, seed, secondsLeft, submittedCount, totalPlayers, hasSubmitted, submit } =
+    useRound();
   const { roomId } = useLobby();
 
-  const promptText = seed?.promptText ?? FALLBACK_PROMPT;
   const starterCode = seed?.starterLine ?? FALLBACK_STARTER;
-  // TODO: language is NOT in the round protocol — picked at lobby creation
-  //       in the UI but not yet on the wire. Hardcoded for now.
   const [language, setLanguage] = useState("python");
-
   const [editorValue, setEditorValue] = useState(starterCode);
   const [lastRoundKey, setLastRoundKey] = useState(null);
 
-  // Compare-in-render: when (roomId, roundNum) first becomes available or
-  // changes to a new round, prefer a saved draft over the starter line.
-  // loadDraft returns null when the stored key doesn't match, so a stale
-  // draft never bleeds into a new round.
   const roundKey = roomId && roundNum ? `${roomId}:${roundNum}` : null;
   if (roundKey && roundKey !== lastRoundKey) {
     setLastRoundKey(roundKey);
@@ -74,67 +67,82 @@ export default function EditorDemo() {
     submit(editorValue)
       .then(() => clearDraft())
       .catch((err) => console.error("[editor] submit failed:", err));
+    router.push("/describe");
   };
-  const displayTimer =
-    typeof secondsLeft === "number"
-      ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
-      : "—:—";
-  const readyCount = `${submittedCount} of ${totalPlayers || "—"} submitted`;
+
+  const handleSkip = () => router.push("/describe");
+
+  // Substantive-code heuristic — disables Submit until the player writes more
+  // than a single comment line.
+  const meaningful =
+    editorValue
+      .split("\n")
+      .filter((l) => l.trim() && !l.trim().startsWith("#") && !l.trim().startsWith("//"))
+      .join("\n")
+      .trim().length > 6;
 
   return (
-    <div className={styles.stage}>
-      <Window
-        title={`Code Telephone — Round ${roundNum ?? "—"} — Write Phase`}
-        width={920}
-        menubar={
-          <div className={styles.menu}>
-            <span>File</span><span>Edit</span><span>View</span><span>Help</span>
-          </div>
-        }
+    <Window
+      title={`Code Telephone — Round ${roundNum ?? "—"}`}
+      subtitle="You're the seed: write any function"
+      icon={<CTLogoMark size={14} />}
+      width={1280}
+      height={720}
+      centered
+      noPadding
+      flush
+      onClose={() => router.push("/")}
+    >
+      <GameShell
+        phaseIdx={0}
+        players={DEFAULT_PLAYERS}
+        seconds={secondsLeft ?? 180}
+        readyCount={submittedCount}
+        totalPlayers={totalPlayers}
+        screenLabel="write any function you want"
+        submitDisabled={!meaningful || hasSubmitted}
+        submitLabel="Submit →"
+        onSubmit={handleSubmit}
+        onSkip={handleSkip}
+        tip="Clean naming carries meaning further than clever tricks. The AI judge weighs intent, not syntax."
       >
-        <div className={styles.body}>
-          <header className={styles.phaseHeader}>
-            <div>
-              <div className={styles.phaseLabel}>Phase 1 of 4</div>
-              <div className={styles.phaseTitle}>Write the function</div>
+        <div className={styles.write}>
+          <div className={styles.seedBar}>
+            <div className={styles.seedLeft}>
+              <span className={styles.seedTag}>YOU&apos;RE THE SEED</span>
+              <h3 className={styles.seedTitle}>Write any function you want.</h3>
+              <p className={styles.seedSub}>
+                Pick something with a little character — clever names, sneaky one-liners,
+                a confusing helper. Whatever it is, it has to make sense to{" "}
+                <b>one</b> teammate downstream. The more interesting the seed, the more
+                fun the chain.
+              </p>
+              <div className={styles.seedTips}>
+                <span className={styles.seedTip}>✦ Keep it under ~20 lines</span>
+                <span className={styles.seedTip}>✦ Variable names matter</span>
+                <span className={styles.seedTip}>✦ No external libraries</span>
+              </div>
             </div>
-            <div className={styles.timer}>
-              <span className={styles.timerLabel}>Time left</span>
-              <span className={styles.timerValue}>{displayTimer}</span>
+            <div className={styles.seedRight}>
+              <LanguagePicker
+                value={language}
+                onChange={setLanguage}
+                disabled={hasSubmitted}
+                name="editor-language"
+              />
             </div>
-          </header>
-
-          <section className={styles.prompt}>
-            <div className={styles.promptLabel}>Prompt</div>
-            <p className={styles.promptText}>{promptText}</p>
-          </section>
+          </div>
 
           <div className={styles.editorWrap}>
-            <LanguagePicker
-              value={language}
-              onChange={setLanguage}
-              disabled={hasSubmitted}
-              name="editor-language"
-            />
             <CodeEditor
               value={editorValue}
               onChange={handleEditorChange}
               language={language}
               fileName="solution"
-              height={380}
             />
           </div>
-
-          <footer className={styles.actions}>
-            <Button>Skip</Button>
-            <span className={styles.flex} />
-            <span className={styles.readyCount}>{readyCount}</span>
-            <Button variant="primary" disabled={hasSubmitted} onClick={handleSubmit}>
-              Submit
-            </Button>
-          </footer>
         </div>
-      </Window>
-    </div>
+      </GameShell>
+    </Window>
   );
 }

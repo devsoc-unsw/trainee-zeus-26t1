@@ -1,0 +1,194 @@
+.menubar {
+  position: relative;
+  z-index: var(--z-menubar);
+  height: 26px;
+  display: flex;
+  align-items: stretch;
+  background: var(--menubar-bg);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  color: var(--text-strong);
+  padding-right: 4px;
+}
+:global([data-theme="dark"]) .menubar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--text-body);
+}
+
+.left,
+.right {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.right {
+  gap: 10px;
+  padding-right: 6px;
+  padding-left: 6px;
+}
+.center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.breadcrumb {
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+:global([data-theme="dark"]) .breadcrumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 12px;
+  color: inherit;
+  cursor: pointer;
+}
+.itemWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.item {
+  position: relative;
+  padding: 0 10px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: inherit;
+  border-radius: 5px;
+  margin: 2px 1px;
+  transition: background-color 100ms ease;
+}
+.itemBold {
+  font-weight: 700;
+}
+.item:hover,
+.itemOpen {
+  background: rgba(0, 0, 0, 0.06);
+}
+:global([data-theme="dark"]) .item:hover,
+:global([data-theme="dark"]) .itemOpen {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 220px;
+  background: rgba(252, 253, 255, 0.92);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 14px 36px rgba(0, 20, 40, 0.2), 0 2px 6px rgba(0, 20, 40, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  color: var(--text-strong);
+  z-index: var(--z-modal);
+}
+:global([data-theme="dark"]) .dropdown {
+  background: rgba(38, 44, 54, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-body);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.menuitem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-weight: 500;
+  text-align: left;
+  color: inherit;
+}
+.menuitem:hover,
+.menuitem:focus-visible {
+  background: linear-gradient(180deg, #4aa8d8, #2a7ab8);
+  color: #fff;
+  outline: none;
+}
+.meta {
+  font-size: 12px;
+  opacity: 0.7;
+  font-weight: 400;
+}
+.sep {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 4px 6px;
+}
+:global([data-theme="dark"]) .sep {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  opacity: 0.95;
+  color: inherit;
+  padding: 0 4px;
+}
+.sysText {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  opacity: 0.8;
+}
+.sysBtn {
+  cursor: pointer;
+  opacity: 0.9;
+  padding: 4px;
+  border-radius: 5px;
+}
+.sysBtn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+:global([data-theme="dark"]) .sysBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.clock {
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  padding: 0 6px;
+  letter-spacing: 0.01em;
+}
+
+/* Narrow viewports — hide the breadcrumb and tighten the brand padding */
+@media (max-width: 640px) {
+  .center {
+    display: none;
+  }
+  .right {
+    gap: 6px;
+  }
+  .sysText {
+    display: none;
+  }
+}

@@ -2,32 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { highlightToHtml } from "@/lib/highlight";
+import { langByAlias } from "@/lib/languages";
 import styles from "./CodeEditor.module.css";
 
-/* Controlled component: the parent owns the `value` and gets `onChange`
-   callbacks every time the user types, hits Tab, or hits Enter. Read-only
-   call sites can omit `onChange`. */
-
-/* ──────────────────────────────────────────────────────────────────────
-   CodeEditor — LeetCode/HackerRank-style editor with Aero chrome.
-   Layered:
-     1. Highlight layer (rendered <pre> with tokenised spans)
-     2. Textarea on top — transparent text, visible caret
-     3. Line-number gutter on the left
-   Both layers share font + padding so glyphs align perfectly.
-   ────────────────────────────────────────────────────────────────────── */
-
-const LANGUAGE_LABEL = {
-  python: "Python",
-  javascript: "JavaScript",
-  java: "Java",
-};
+/* CodeEditor — dark IDE inside light Aero chrome.
+   Three layers stacked vertically:
+     1. Top bar  — filename + language pill + read-only badge
+     2. Body     — gutter + highlight <pre> + transparent <textarea>
+     3. Status   — Ln/Col, char count, encoding/spacing
+*/
 
 const TAB_SPACES = 4;
 
 function indentForNewline(value, caret) {
-  /* Pull the indentation from the start of the current line for auto-indent
-     on Enter. Also adds +4 spaces after lines ending with ':' or '{'. */
   const before = value.slice(0, caret);
   const lineStart = before.lastIndexOf("\n") + 1;
   const currentLine = before.slice(lineStart);
@@ -47,21 +34,18 @@ export default function CodeEditor({
   readOnly = false,
   fileName = "solution",
   showStatusBar = true,
-  height = 360,
+  height,
+  className = "",
 }) {
   const [cursor, setCursor] = useState({ ln: 1, col: 1 });
   const textareaRef = useRef(null);
   const preRef = useRef(null);
   const gutterRef = useRef(null);
 
+  const lang = langByAlias(language);
   const lineCount = useMemo(() => value.split("\n").length, [value]);
-  const highlighted = useMemo(
-    () => highlightToHtml(value, language),
-    [value, language]
-  );
+  const highlighted = useMemo(() => highlightToHtml(value, lang.value), [value, lang.value]);
 
-  /* Keep scroll positions of the highlight layer + line-number gutter
-     synced with the textarea. */
   const onScroll = (e) => {
     const { scrollTop, scrollLeft } = e.currentTarget;
     if (preRef.current) {
@@ -85,7 +69,6 @@ export default function CodeEditor({
   const onKeyDown = (e) => {
     if (readOnly) return;
     const el = e.currentTarget;
-    /* Tab — insert spaces, do not blur. */
     if (e.key === "Tab") {
       e.preventDefault();
       const start = el.selectionStart;
@@ -98,7 +81,6 @@ export default function CodeEditor({
         updateCursor(el);
       });
     }
-    /* Enter — auto-indent. */
     if (e.key === "Enter") {
       e.preventDefault();
       const start = el.selectionStart;
@@ -114,7 +96,6 @@ export default function CodeEditor({
     }
   };
 
-  /* Run cursor update on selection changes, not just key events. */
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -129,56 +110,34 @@ export default function CodeEditor({
     };
   }, []);
 
+  const containerStyle = height ? { height } : undefined;
+
   return (
-    <div className={styles.editor} style={{ height }}>
-      {/* ── Top bar ─────────────────────────────────────────────────── */}
+    <div className={`${styles.editor} ${className}`} style={containerStyle}>
       <div className={styles.topBar}>
-        <span className={styles.langBadge}>
-          <span className={styles.langDot} />
-          {LANGUAGE_LABEL[language] ?? language}
+        <span className={styles.fileName}>
+          {fileName}.{lang.ext}
         </span>
-        <span className={styles.fileName}>{fileName}.{language === "python" ? "py" : language === "javascript" ? "js" : "java"}</span>
-        {readOnly && (
-          <span className={styles.readOnlyBadge}>
-            <svg viewBox="0 0 12 12" aria-hidden>
-              <path
-                d="M3 5 V4 a3 3 0 1 1 6 0 V5 M3 5 H9 V10 H3 Z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinejoin="round"
-              />
-            </svg>
-            READ ONLY
-          </span>
-        )}
-        <div className={styles.topBarSpacer} />
-        <button type="button" className={styles.iconBtn} aria-label="Reset">
-          <svg viewBox="0 0 16 16" aria-hidden>
-            <path
-              d="M8 3 a5 5 0 1 1 -4.9 4 M3 1 L3 5 L7 5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-        <button type="button" className={styles.iconBtn} aria-label="Settings">
-          <svg viewBox="0 0 16 16" aria-hidden>
-            <circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
-            <path d="M8 1.5 v2 M8 12.5 v2 M1.5 8 h2 M12.5 8 h2 M3.5 3.5 l1.4 1.4 M11.1 11.1 l1.4 1.4 M3.5 12.5 l1.4 -1.4 M11.1 4.9 l1.4 -1.4"
-              stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-          </svg>
-        </button>
+        <span
+          className={styles.langPill}
+          style={{
+            background: lang.color + "22",
+            color: lang.color,
+            borderColor: lang.color + "55",
+          }}
+        >
+          <span className={styles.langGlyph}>{lang.glyph}</span>
+          {lang.label}
+        </span>
+        {readOnly && <span className={styles.readOnlyBadge}>READ ONLY</span>}
       </div>
 
-      {/* ── Editor body ─────────────────────────────────────────────── */}
       <div className={styles.body}>
-        <div className={styles.gutter} ref={gutterRef} aria-hidden>
+        <div className={styles.gutter} ref={gutterRef} aria-hidden="true">
           {Array.from({ length: lineCount }).map((_, i) => (
-            <div key={i} className={styles.lineNumber}>{i + 1}</div>
+            <div key={i} className={styles.lineNumber}>
+              {i + 1}
+            </div>
           ))}
         </div>
 
@@ -186,7 +145,7 @@ export default function CodeEditor({
           <pre
             ref={preRef}
             className={styles.highlight}
-            aria-hidden
+            aria-hidden="true"
             dangerouslySetInnerHTML={{ __html: highlighted + "\n" }}
           />
           <textarea
@@ -205,25 +164,21 @@ export default function CodeEditor({
             autoCapitalize="off"
             wrap="off"
             readOnly={readOnly}
-            aria-label="Code editor"
+            aria-label={`${fileName} code editor`}
           />
         </div>
       </div>
 
-      {/* ── Status bar ──────────────────────────────────────────────── */}
       {showStatusBar && (
         <div className={styles.statusBar}>
-          <span>Ln {cursor.ln}, Col {cursor.col}</span>
-          <span className={styles.statusSep} />
-          <span>{lineCount} {lineCount === 1 ? "line" : "lines"}</span>
-          <span className={styles.statusSep} />
-          <span>{value.length} chars</span>
-          <div className={styles.statusSpacer} />
-          <span>Spaces: 4</span>
-          <span className={styles.statusSep} />
-          <span>UTF-8</span>
-          <span className={styles.statusSep} />
-          <span>{LANGUAGE_LABEL[language] ?? language}</span>
+          <span>
+            Ln {cursor.ln}, Col {cursor.col}
+          </span>
+          <span>
+            {value.length} chars · {lineCount} {lineCount === 1 ? "line" : "lines"}
+          </span>
+          <span className={styles.statusSpacer} />
+          <span>UTF-8 · LF · spaces: 4</span>
         </div>
       )}
     </div>

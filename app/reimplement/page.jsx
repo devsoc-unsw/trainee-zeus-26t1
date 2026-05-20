@@ -1,23 +1,24 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import Notepad from "@/components/notepad/Notepad";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
 import LanguagePicker from "@/components/game/LanguagePicker";
-import PhaseHUD from "@/components/game/PhaseHUD";
+import Notepad from "@/components/notepad/Notepad";
+import GameShell from "@/components/game/GameShell";
+import PlayerAvatar from "@/components/game/PlayerAvatar";
+import Pill from "@/components/game/Pill";
+import { CTLogoMark } from "@/components/brand/CTLogo";
 import styles from "./page.module.css";
 
-// Stubbed during Plan 2 migration (Task 1). The real round/lobby state
-// and draft persistence will be rewired against the new Realtime
-// architecture in later Plan 2/3 tasks.
 function useRound() {
   return {
     seed: null,
-    roundNum: null,
-    secondsLeft: null,
+    roundNum: 1,
+    secondsLeft: 180,
     submittedCount: 0,
-    totalPlayers: 0,
+    totalPlayers: 4,
     hasSubmitted: false,
     submit: async () => {},
   };
@@ -31,33 +32,35 @@ function loadDraft() {
 function saveDraft() {}
 function clearDraft() {}
 
-const FALLBACK_DESCRIPTION = "Waiting for the previous player's description…";
+const FALLBACK_DESCRIPTION = `Takes a string of characters and gives back a new string
+with everything in the opposite order. So the last letter
+becomes the first, and so on. The input is left as-is —
+the function returns a fresh string, doesn't mutate.
 
-export default function ReimplementDemo() {
-  const {
-    roundNum,
-    seed,
-    secondsLeft,
-    submittedCount,
-    totalPlayers,
-    hasSubmitted,
-    submit,
-  } = useRound();
+Empty strings come back empty. Single characters come back
+unchanged. Works on unicode (one code-point per "slot").`;
+
+const DEFAULT_PLAYERS = [
+  { name: "Jordan", you: false, status: "submitted", statusText: "Submitted" },
+  { name: "Amrita", you: false, status: "submitted", statusText: "Submitted" },
+  { name: "Lukas", you: false, status: "submitted", statusText: "Submitted" },
+  { name: "You", you: true, status: "typing", statusText: "Your turn" },
+];
+
+export default function ReimplementPage() {
+  const router = useRouter();
+  const { seed, roundNum, secondsLeft, submittedCount, totalPlayers, hasSubmitted, submit } =
+    useRound();
   const { roomId } = useLobby();
 
   const receivedDescription = seed?.receivedContent ?? FALLBACK_DESCRIPTION;
-
   const [language, setLanguage] = useState("python");
   const [reconstructedCode, setReconstructedCode] = useState("");
-  const [lastReceivedDescription, setLastReceivedDescription] =
-    useState(receivedDescription);
+  const [lastReceived, setLastReceived] = useState(receivedDescription);
 
-  // When the seed flips to a new round's description, restore the draft for
-  // that (roomId, roundNum) if one was saved, otherwise start blank.
-  if (receivedDescription !== lastReceivedDescription) {
-    setLastReceivedDescription(receivedDescription);
-    const saved =
-      roomId && roundNum ? loadDraft(roomId, roundNum) : null;
+  if (receivedDescription !== lastReceived) {
+    setLastReceived(receivedDescription);
+    const saved = roomId && roundNum ? loadDraft(roomId, roundNum) : null;
     setReconstructedCode(saved ?? "");
   }
 
@@ -70,70 +73,76 @@ export default function ReimplementDemo() {
     submit(reconstructedCode, language)
       .then(() => clearDraft())
       .catch((err) => console.error("[reimplement] submit failed:", err));
+    router.push("/reveal");
   };
 
-  const solutionExt =
-    language === "javascript" ? "js" : language === "java" ? "java" : "py";
-  const displayTimer =
-    typeof secondsLeft === "number"
-      ? `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
-      : "—:—";
-  const readyCount = `${submittedCount} of ${totalPlayers || "—"} submitted`;
+  const handleSkip = () => router.push("/reveal");
 
   return (
-    <div className={styles.stage}>
-      <PhaseHUD
-        phaseIndex={3}
-        phaseTotal={4}
-        title="Re-implement the function"
-        timer={displayTimer}
-        readyCount={readyCount}
-        submitLabel="Submit code"
+    <Window
+      title={`Code Telephone — Round ${roundNum ?? "—"}`}
+      subtitle="Write the function from the description"
+      icon={<CTLogoMark size={14} />}
+      width={1280}
+      height={720}
+      centered
+      noPadding
+      flush
+      onClose={() => router.push("/")}
+    >
+      <GameShell
+        phaseIdx={2}
+        players={DEFAULT_PLAYERS}
+        seconds={secondsLeft ?? 180}
+        readyCount={submittedCount}
+        totalPlayers={totalPlayers}
+        screenLabel="reimplement from the description"
+        submitDisabled={reconstructedCode.trim().length < 4 || hasSubmitted}
+        submitLabel="Submit code →"
         onSubmit={handleSubmit}
-      />
+        onSkip={handleSkip}
+        tip="Write idiomatic code in whatever language you prefer — the judge normalises across them."
+      >
+        <div className={styles.split}>
+          <section className={styles.pane}>
+            <header className={styles.paneHead}>
+              <span className={styles.tag}>FROM</span>
+              <PlayerAvatar name="Lukas" size={20} />
+              <span className={styles.name}>Lukas&apos;s description</span>
+              <Pill tone="ghost">read-only</Pill>
+            </header>
+            <div className={styles.paneBody}>
+              <Notepad fileName="Description" value={receivedDescription} readOnly />
+            </div>
+          </section>
 
-      {/* TODO: PhaseHUD does not currently accept a disabled prop. When wiring
-          real submit, add `disabled` to PhaseHUD's submit button and pass
-          `disabled={hasSubmitted}` here. */}
-
-      {/* Left: the description (read-only Notepad). */}
-      <div className={styles.descWindow}>
-        <Notepad
-          fileName="received"
-          value={receivedDescription}
-          readOnly
-          x={56}
-          y={88}
-          width={440}
-          height={460}
-        />
-      </div>
-
-      {/* Right: the editor where Player C writes their reconstruction. */}
-      <div className={styles.codeWindow}>
-        <Window
-          title={`solution.${solutionExt} — Code Telephone`}
-          x={520}
-          y={88}
-          width={580}
-          height={460}
-        >
-          <LanguagePicker
-            value={language}
-            onChange={setLanguage}
-            disabled={hasSubmitted}
-            name="reimplement-language"
-          />
-          <CodeEditor
-            value={reconstructedCode}
-            onChange={handleCodeChange}
-            language={language}
-            fileName="solution"
-            height={428}
-            showStatusBar
-          />
-        </Window>
-      </div>
-    </div>
+          <section className={styles.pane}>
+            <header className={styles.paneHead}>
+              <span className={`${styles.tag} ${styles.tagYou}`}>TO</span>
+              <PlayerAvatar name="Mei" size={20} />
+              <span className={styles.name}>Mei (next player)</span>
+              <Pill tone="accent">your turn</Pill>
+              <span className={styles.headLang}>
+                <LanguagePicker
+                  value={language}
+                  onChange={setLanguage}
+                  label={null}
+                  disabled={hasSubmitted}
+                  name="reimplement-language"
+                />
+              </span>
+            </header>
+            <div className={styles.paneBody}>
+              <CodeEditor
+                value={reconstructedCode}
+                onChange={handleCodeChange}
+                language={language}
+                fileName="solution"
+              />
+            </div>
+          </section>
+        </div>
+      </GameShell>
+    </Window>
   );
 }

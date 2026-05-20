@@ -1,156 +1,222 @@
-/* ──────────────────────────────────────────────────────────────────────
-   Home wizard — classic Win7 wizard layout.
-   Banner with deep-blue heading on a very pale background, white content
-   area, footer with right-aligned Back/Next/Cancel and a "Step X of Y"
-   indicator on the left.
-   ────────────────────────────────────────────────────────────────────── */
-
-.stage {
-  width: 100%;
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   height: 100%;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+:global([data-theme="dark"]) .hero {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.heroMark {
+  width: 56px;
+  height: 56px;
   display: grid;
   place-items: center;
-  padding: 24px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 4px 12px rgba(0, 30, 60, 0.1);
+}
+:global([data-theme="dark"]) .heroMark {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.stage > :global(div) {
-  animation: windowIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  transform-origin: center 60%;
-}
-
-@keyframes windowIn {
-  from { opacity: 0; transform: scale(0.88) translateY(6px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-/* The wizard fills the window's content area */
-.wizard {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: white;
-}
-
-/* ── Banner ────────────────────────────────────────────────────────── */
-.banner {
-  flex: 0 0 auto;
-  padding: 16px 24px 14px;
-  background:
-    linear-gradient(to bottom, #fdfeff 0%, #f3f7fc 100%);
-  border-bottom: 1px solid #cdd9e8;
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.6);
-}
-
-.bannerTitle {
-  /* Classic Win7 wizard heading colour */
-  color: #003399;
-  font-family: var(--font-ui);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.1px;
+.title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+  line-height: 1.1;
   margin: 0;
-  line-height: 1.2;
 }
 
-.bannerSubtitle {
-  margin: 4px 0 0 12px;
-  font-size: 12px;
-  color: var(--text-on-glass);
-  line-height: 1.3;
+.sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
-/* ── Content ───────────────────────────────────────────────────────── */
-.content {
-  flex: 1 1 auto;
-  padding: 18px 28px;
-  background: white;
-  overflow-y: auto;
-}
-
-.stepBody {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* ── Form bits ─────────────────────────────────────────────────────── */
 .field {
+  margin: 4px 0;
+}
+
+.actions {
+  margin-top: auto;
+}
+
+.foot {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: center;
+  padding-top: 4px;
+}
+
+/* ── Choice cards ────────────────────────────────────────────────────── */
+.choices {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-width: 320px;
+  gap: 10px;
+  margin-top: 4px;
 }
 
-.fieldLabel {
-  font-size: 12px;
-  color: var(--text-on-glass);
-}
-
-.hint {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.45;
-  margin-top: 2px;
-  max-width: 440px;
-}
-
-/* ── Method options ───────────────────────────────────────────────── */
-.option {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.option + .option {
-  margin-top: 6px;
-}
-
-.optionHint {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.4;
-  margin-left: 19px;
-}
-
-.joinRow {
+.choice {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 6px 0 0 19px;
-  max-width: 360px;
-  transition: opacity 160ms ease;
+  gap: 14px;
+  padding: 14px 16px;
+  width: 100%;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 2px 8px rgba(0, 30, 60, 0.06);
+  transition: transform 100ms, box-shadow 100ms, background 100ms;
+  cursor: pointer;
+  color: inherit;
+  font-family: var(--font-ui);
 }
 
-.joinRow.disabled {
-  opacity: 0.5;
-  pointer-events: none;
+.choice:hover:not(:disabled),
+.choice:focus-visible {
+  background: rgba(255, 255, 255, 0.75);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 4px 14px rgba(0, 30, 60, 0.1);
+  outline: none;
 }
 
-.joinLabel {
-  font-size: 12px;
-  color: var(--text-on-glass);
-  white-space: nowrap;
+.choice:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
-/* ── Footer ────────────────────────────────────────────────────────── */
-.footer {
+.choiceIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(0, 30, 60, 0.15);
   flex: 0 0 auto;
+}
+
+.choiceText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.choiceTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.choiceSub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+:global([data-theme="dark"]) .choice {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+:global([data-theme="dark"]) .choice:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Step 2 nav row ──────────────────────────────────────────────────── */
+.nav {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  background:
-    linear-gradient(to bottom, #f0f3f7 0%, #dde3eb 100%);
-  border-top: 1px solid #b8c2d0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 6px;
 }
 
-.stepIndicator {
+.signed {
   font-size: 11px;
   color: var(--text-muted);
-  letter-spacing: 0.3px;
 }
 
-.flex {
-  flex: 1 1 auto;
+/* ── Modal ───────────────────────────────────────────────────────────── */
+.modalOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 30, 50, 0.45);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 1500;
+  animation: modalFade 150ms ease-out;
+}
+
+@keyframes modalFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  width: 320px;
+  background: var(--neutral-0);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 18px 48px rgba(0, 30, 60, 0.3);
+  animation: modalPop 150ms ease-out;
+}
+
+@keyframes modalPop {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modalTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong);
+  margin: 0;
+}
+
+.modalBody {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 6px 0 12px;
+}
+
+.modalField {
+  margin-bottom: 14px;
+}
+
+.modalError {
+  font-size: 11.5px;
+  color: var(--status-danger);
+  margin: -6px 0 10px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+:global([data-theme="dark"]) .modal {
+  background: var(--neutral-100);
+  border-color: rgba(255, 255, 255, 0.1);
 }

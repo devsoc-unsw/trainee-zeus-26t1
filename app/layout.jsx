@@ -1,7 +1,8 @@
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import MenuBar from "@/components/desktop/MenuBar";
 import Superbar from "@/components/desktop/Superbar";
-// GameRouter was deleted in Plan 2 Task 1 (legacy WS routing). The new
-// Realtime-based per-room navigation is wired up in Tasks 10–12.
+import Bliss from "@/components/wallpaper/Bliss";
 
 export const metadata = {
   title: "Code Telephone",
@@ -10,26 +11,18 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="light" suppressHydrationWarning>
       <body>
-        <div className="desktop-root">
-          <div className="window-area">{children}</div>
-          <Superbar />
-        </div>
-        {/* Shown only on narrow viewports — the desktop UI assumes ≥900px.
-            CSS in globals.css toggles which surface is visible. */}
-        <div className="mobile-block" aria-hidden>
-          <div className="mobile-block__card">
-            <div className="mobile-block__glyph" aria-hidden>
-              ⊟
+        <ThemeProvider>
+          <div className="desktop-root">
+            <MenuBar />
+            <div className="window-area">
+              <Bliss />
+              <div className="window-stack">{children}</div>
             </div>
-            <h1 className="mobile-block__title">Open on a laptop or desktop</h1>
-            <p className="mobile-block__body">
-              Code Telephone is designed for a wider screen. Please open this
-              page on a device at least 900 pixels wide.
-            </p>
+            <Superbar />
           </div>
-        </div>
+        </ThemeProvider>
       </body>
     </html>
   );

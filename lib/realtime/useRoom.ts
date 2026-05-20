@@ -44,6 +44,7 @@ export function useRoom(roomId: string | null): UseRoomState {
 
   useEffect(() => {
     if (!roomId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time reset when the room id is cleared
       setState({ room: null, players: [], loading: false, error: null });
       return;
     }
