@@ -1,43 +1,77 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Window from "@/components/window/Window";
 import GlassPanel from "@/components/glass/GlassPanel";
 import Button from "@/components/input/Button";
 import Radio from "@/components/input/Radio";
 import PlayerAvatar from "@/components/game/PlayerAvatar";
+import { useRoom } from "@/lib/realtime/useRoom";
 import styles from "./page.module.css";
 
-// Stubbed during Plan 2 migration. Real implementation lands in Task 12
-// (via lib/realtime/useRoom.ts).
-function useLobby() {
-  return {
-    roomCode: null,
-    players: [],
-    isHost: false,
-    error: null,
-    leave: async () => {},
-    start: async () => {},
-  };
-}
-
 const MAX_PLAYERS = 6;
-
 const languages = [
   { id: "python",     label: "Python" },
   { id: "javascript", label: "JavaScript" },
   { id: "java",       label: "Java" },
 ];
-
 const SELECTED_LANG = "python";
 
+/**
+ * The URL gives us the room `code`, but useRoom needs the room uuid.
+ * Look it up via the anon browser client (RLS allows SELECT).
+ */
+function useRoomIdFromCode(code) {
+  const [roomId, setRoomId] = useState(null);
+  const [notFound, setNotFound] = useState(false);
+  useEffect(() => {
+    if (!code) return;
+    let cancelled = false;
+    (async () => {
+      const { getBrowserClient } = await import("@/lib/supabase/browser");
+      const sb = getBrowserClient();
+      const { data, error } = await sb
+        .from("rooms")
+        .select("id")
+        .eq("code", code)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !data) {
+        setNotFound(true);
+        return;
+      }
+      setRoomId(data.id);
+    })();
+    return () => { cancelled = true; };
+  }, [code]);
+  return { roomId, notFound };
+}
+
 export default function WaitingRoom() {
-  const { roomCode, players, isHost, error, leave, start } = useLobby();
+  const params = useParams();
+  const router = useRouter();
+  const code = (params?.code || "").toString().toUpperCase();
 
-  // TODO: render `error` (room:error payload) somewhere visible.
-  // TODO: render a loading / empty state when `roomCode` is null
-  //       (e.g. on first paint before the server replies).
+  const { roomId, notFound } = useRoomIdFromCode(code);
+  const { room, players, loading, error } = useRoom(roomId);
 
-  const displayRoomCode = roomCode ?? "—";
+  // If the room code doesn't exist (or was just deleted), bounce home.
+  useEffect(() => {
+    if (notFound) router.replace("/");
+  }, [notFound, router]);
+
+  const handleLeave = async () => {
+    try {
+      await fetch(`/api/rooms/${code}/leave`, { method: "POST" });
+    } catch (err) {
+      console.error("[lobby] leave failed:", err);
+    } finally {
+      router.replace("/");
+    }
+  };
+
+  const displayRoomCode = code || "—";
   const emptySlots = Math.max(0, MAX_PLAYERS - players.length);
 
   return (
@@ -60,27 +94,27 @@ export default function WaitingRoom() {
             <div className={styles.roomCode}>{displayRoomCode}</div>
           </header>
 
+          {error && (
+            <div role="alert">Lobby error: {error}</div>
+          )}
+
           <section className={styles.section}>
             <div className={styles.sectionHead}>
               <h2 className={styles.sectionTitle}>
                 Players <span className={styles.muted}>({players.length}/{MAX_PLAYERS})</span>
               </h2>
             </div>
-
             <GlassPanel className={styles.playerList}>
               <ul className={styles.playerUl}>
                 {players.map((p) => (
                   <li key={p.id} className={styles.playerRow}>
                     <PlayerAvatar initials={p.name.slice(0, 2).toUpperCase()} seed={p.name} />
                     <span className={styles.playerName}>{p.name}</span>
-                    {p.host && <span className={styles.hostTag}>host</span>}
+                    {room?.host_id === p.id && <span className={styles.hostTag}>host</span>}
                   </li>
                 ))}
                 {Array.from({ length: emptySlots }).map((_, i) => (
-                  <li
-                    key={`empty-${i}`}
-                    className={`${styles.playerRow} ${styles.empty}`}
-                  >
+                  <li key={`empty-${i}`} className={`${styles.playerRow} ${styles.empty}`}>
                     <span className={styles.emptyAvatar} />
                     <span className={styles.emptyText}>Empty slot</span>
                   </li>
@@ -107,18 +141,12 @@ export default function WaitingRoom() {
           </section>
 
           <footer className={styles.actions}>
-            <Button onClick={() => { leave().catch((err) => console.error(err)); }}>
-              Leave
-            </Button>
+            <Button onClick={handleLeave}>Leave</Button>
             <span className={styles.flex} />
             <span className={styles.hostNote}>
-              {isHost ? "You're the host — start when ready." : "Waiting for host to start."}
+              {loading ? "Loading…" : "Start button wires up in Plan 3."}
             </span>
-            <Button
-              variant="primary"
-              disabled={!isHost || players.length < 3}
-              onClick={() => { start().catch((err) => console.error(err)); }}
-            >
+            <Button variant="primary" disabled>
               Start Game
             </Button>
           </footer>
