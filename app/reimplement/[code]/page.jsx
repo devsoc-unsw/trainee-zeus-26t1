@@ -100,7 +100,11 @@ export default function ReimplementPage() {
     : false;
   const submittedCount = submissions.filter((s) => s.round_num === round).length;
 
-  const [language] = useState("python");
+  // 12-language picker — clamp to DB-safe set on submit (python/javascript/java).
+  const DB_SAFE_LANGS = ["python", "javascript", "java"];
+  const clampLang = (l) => DB_SAFE_LANGS.includes(l) ? l : "python";
+
+  const [language, setLanguage] = useState("python");
   const [reconstructedCode, setReconstructedCode] = useState("");
 
   const handleSubmit = async () => {
@@ -109,7 +113,7 @@ export default function ReimplementPage() {
       const res = await fetch(`/api/rooms/${code}/submit`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ content: reconstructedCode, language }),
+        body: JSON.stringify({ content: reconstructedCode, language: clampLang(language) }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -181,8 +185,9 @@ export default function ReimplementPage() {
               <span className={styles.headLang}>
                 <LanguagePicker
                   value={language}
-                  disabled
+                  onChange={setLanguage}
                   name="reimplement-language"
+                  label={null}
                 />
               </span>
             </header>

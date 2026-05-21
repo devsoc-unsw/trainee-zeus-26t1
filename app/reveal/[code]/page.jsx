@@ -298,6 +298,19 @@ export default function RevealPage() {
                     </>
                   )}
                 </div>
+
+                {players.length > 0 && (
+                  <div className={styles.elo}>
+                    <div className={styles.eloLabel}>ELO change</div>
+                    {players.map((p) => (
+                      <div className={styles.eloRow} key={p.id}>
+                        <PlayerAvatar name={p.name} size={20} />
+                        <span>{p.name}</span>
+                        <span className={styles.eloDelta}>—</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </aside>
             </div>
 

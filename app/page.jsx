@@ -177,6 +177,23 @@ export default function Home() {
                   <span className={styles.choiceSub}>Enter a friend&apos;s room code</span>
                 </span>
               </button>
+
+              <button
+                type="button"
+                className={styles.choice}
+                disabled
+                title="Coming soon"
+              >
+                <span className={styles.choiceIcon} style={{ background: "linear-gradient(135deg,#ffd16e,#e8a030)" }}>
+                  <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M11 2L4 12h5l-1 6 7-10h-5z" fill="#fff" />
+                  </svg>
+                </span>
+                <span className={styles.choiceText}>
+                  <span className={styles.choiceTitle}>Quick play</span>
+                  <span className={styles.choiceSub}>Match with anyone, anywhere</span>
+                </span>
+              </button>
             </div>
 
             <div className={styles.nav}>
