@@ -94,3 +94,47 @@ describe('judgeChain', () => {
       .rejects.toThrow(/GEMINI_API_KEY/);
   });
 });
+
+describe('judgeChain with testResults', () => {
+  beforeEach(() => {
+    vi.stubEnv('GEMINI_API_KEY', 'test-api-key');
+    vi.stubGlobal('fetch', vi.fn());
+  });
+  afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it('includes a "Behavioural test results" section in the prompt when testResults provided', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(GOOD_RESPONSE), { status: 200 }));
+    await judgeChain({
+      originalCode: 'a',
+      finalCode: 'b',
+      language: 'python',
+      testResults: {
+        original: [
+          { name: 'doubles', passed: true },
+          { name: 'zero', passed: true },
+        ],
+        final: [
+          { name: 'doubles', passed: true },
+          { name: 'zero', passed: false, error: 'AssertionError' },
+        ],
+      },
+    });
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(init.body as string);
+    const prompt = body.contents[0].parts[0].text as string;
+    expect(prompt).toMatch(/behav(io|iou)ral test/i);
+    expect(prompt).toContain('Original: 2 / 2');
+    expect(prompt).toContain('Reconstruction: 1 / 2');
+    expect(prompt).toContain('zero');
+    expect(prompt).toContain('AssertionError');
+  });
+
+  it('does not include a test-results section when none provided', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(GOOD_RESPONSE), { status: 200 }));
+    await judgeChain({ originalCode: 'a', finalCode: 'b', language: 'python' });
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(init.body as string);
+    const prompt = body.contents[0].parts[0].text as string;
+    expect(prompt).not.toMatch(/behav(io|iou)ral test/i);
+  });
+});

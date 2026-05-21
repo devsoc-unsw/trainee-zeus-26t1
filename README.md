@@ -47,13 +47,51 @@ npm test          # one-shot
 npm run test:watch
 ```
 
-## Deploy
+## Deploy to Vercel
+
+One-time setup per environment (prod, preview):
 
 ```bash
-npx vercel link
-npx vercel env add SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY SESSION_SECRET GEMINI_API_KEY JUDGE0_API_KEY JUDGE0_API_HOST
-npx vercel --prod
+# 1. Install the Vercel CLI globally OR use npx.
+npm i -g vercel
+
+# 2. Link the repo to a Vercel project (interactive — prompts for org + project).
+#    Pick "Link to existing project" if your team already created one in the
+#    Vercel dashboard; otherwise "Create new project". Framework auto-detect
+#    should land on Next.js.
+vercel link
+
+# 3. Set environment variables. The browser-baked NEXT_PUBLIC_* vars must be
+#    set at build time, so add them BEFORE deploying. Use the CLI or paste
+#    into the dashboard's "Environment Variables" tab.
+
+# Required (server-only — never expose to the browser):
+vercel env add SUPABASE_URL                production
+vercel env add SUPABASE_SERVICE_ROLE_KEY   production
+vercel env add SESSION_SECRET              production
+vercel env add GEMINI_API_KEY              production
+
+# Required (browser-baked):
+vercel env add NEXT_PUBLIC_SUPABASE_URL       production
+vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY  production
+
+# Optional (Judge0 behavioural scoring — leave unset to skip):
+vercel env add JUDGE0_API_KEY   production
+vercel env add JUDGE0_API_HOST  production   # default: judge0-ce.p.rapidapi.com
+
+# 4. Deploy.
+vercel --prod
 ```
+
+After `vercel --prod` succeeds, the CLI prints a `*.vercel.app` URL. Open it in two tabs (one normal + one incognito) and verify a 2-player game runs end-to-end.
+
+### Preview deploys
+
+`vercel` without `--prod` creates a preview deployment with its own URL. Useful for branch previews — each PR gets one automatically once the repo is linked to GitHub.
+
+### Updating env vars after deploy
+
+`vercel env rm <NAME> production` then re-add. The next deploy picks up the change. Server-only vars take effect immediately on the next request; `NEXT_PUBLIC_*` vars require a fresh build, so trigger one with `vercel --prod` or push a commit.
 
 ## Plans
 

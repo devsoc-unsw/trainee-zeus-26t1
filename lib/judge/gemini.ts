@@ -1,16 +1,47 @@
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
+export type TestResult = {
+  name: string;
+  passed: boolean;
+  output?: string;
+  error?: string;
+};
+
 export type JudgeInput = {
   originalCode: string;
   finalCode: string;
   language: string;
+  testResults?: {
+    original: TestResult[];
+    final: TestResult[];
+  };
 };
+
 export type JudgeResult = {
   overallScore: number;
   notes: string;
 };
 
-function buildPrompt({ originalCode, finalCode, language }: JudgeInput): string {
+function formatTestResultsSection(testResults: JudgeInput['testResults']): string {
+  if (!testResults) return '';
+  const { original, final } = testResults;
+  const passCount = (rs: TestResult[]) => rs.filter((r) => r.passed).length;
+
+  const failingFinal = final
+    .filter((r) => !r.passed)
+    .map((r) => `  - ${r.name}: ${r.error ?? 'failed'}`)
+    .join('\n');
+
+  return `
+
+Behavioural test results (each case is a Python assert run against the function):
+- Original: ${passCount(original)} / ${original.length} passing
+- Reconstruction: ${passCount(final)} / ${final.length} passing
+${failingFinal ? `Reconstruction failures:\n${failingFinal}\n` : ''}
+Factor this into the score — perfect behavioural match should weight strongly toward 100, divergent behaviour toward lower.`;
+}
+
+function buildPrompt({ originalCode, finalCode, language, testResults }: JudgeInput): string {
   return `You are evaluating how faithfully a code reconstruction matches an original function passed through a game of telephone.
 
 Original function (language: ${language}):
@@ -22,6 +53,7 @@ Final reconstruction (language: ${language}):
 \`\`\`${language}
 ${finalCode}
 \`\`\`
+${formatTestResultsSection(testResults)}
 
 Score the reconstruction from 0 to 100:
 - 100: behaviorally and structurally identical

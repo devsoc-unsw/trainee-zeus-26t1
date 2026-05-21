@@ -50,3 +50,7 @@ legacy/
 
 # Skills
 agents
+
+# Playwright
+test-results/
+playwright-report/

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { judgeChain as realJudgeChain, type JudgeResult } from '@/lib/judge/gemini';
+import { judgeChain as realJudgeChain, type JudgeResult, type TestResult } from '@/lib/judge/gemini';
+import { generateTestCases as realGenerateTestCases, type TestCase } from '@/lib/judge/test-cases';
+import { runCases as realRunCases } from '@/lib/judge0/run';
 
 type Submission = {
   chain_index: number;
@@ -14,13 +16,45 @@ type ChainScore = {
   status: string;
 };
 
+type GenerateFn = (args: { code: string; language: string }) => Promise<TestCase[]>;
+type RunFn = (args: { code: string; language: string; cases: TestCase[] }) => Promise<TestResult[]>;
+type JudgeFn = (input: {
+  originalCode: string; finalCode: string; language: string;
+  testResults?: { original: TestResult[]; final: TestResult[] };
+}) => Promise<JudgeResult>;
+
+async function maybeRunBehavioural(args: {
+  originalCode: string;
+  finalCode: string;
+  language: string;
+  generateTestCases: GenerateFn;
+  runCases: RunFn;
+}): Promise<{ original: TestResult[]; final: TestResult[] } | null> {
+  try {
+    const cases = await args.generateTestCases({ code: args.originalCode, language: args.language });
+    if (cases.length === 0) return null;
+    const [original, final] = await Promise.all([
+      args.runCases({ code: args.originalCode, language: args.language, cases }),
+      args.runCases({ code: args.finalCode, language: args.language, cases }),
+    ]);
+    if (original.length === 0 || final.length === 0) return null;
+    return { original, final };
+  } catch {
+    return null;
+  }
+}
+
 export async function judgeRoom(args: {
   supabase: SupabaseClient;
   roomId: string;
-  judgeChain?: (input: { originalCode: string; finalCode: string; language: string }) => Promise<JudgeResult>;
+  judgeChain?: JudgeFn;
+  generateTestCases?: GenerateFn;
+  runCases?: RunFn;
 }): Promise<{ judged: number; failed: number }> {
   const { supabase, roomId } = args;
   const judge = args.judgeChain ?? realJudgeChain;
+  const generate = args.generateTestCases ?? realGenerateTestCases;
+  const run = args.runCases ?? realRunCases;
 
   const { data: room } = await supabase
     .from('rooms').select('id, round_count').eq('id', roomId).maybeSingle();
@@ -54,11 +88,21 @@ export async function judgeRoom(args: {
       continue;
     }
 
+    const language = original.language ?? 'python';
+    const behavioural = await maybeRunBehavioural({
+      originalCode: original.content,
+      finalCode: final.content,
+      language,
+      generateTestCases: generate,
+      runCases: run,
+    });
+
     try {
       const result = await judge({
         originalCode: original.content,
         finalCode: final.content,
-        language: original.language ?? 'python',
+        language,
+        ...(behavioural ? { testResults: behavioural } : {}),
       });
       await supabase
         .from('chain_scores')
