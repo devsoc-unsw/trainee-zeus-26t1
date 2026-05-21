@@ -229,63 +229,56 @@ export default function WaitingRoom() {
         </section>
 
         <section className={styles.col} aria-labelledby="lobby-settings">
-          <h3 id="lobby-settings" className={styles.h}>
-            {me?.isHost ? "Game settings" : "Waiting for host"}
-          </h3>
-          {me?.isHost ? (
-            <GlassPanel className={styles.settings}>
-              <div className={styles.setting}>
-                <div className={styles.settingLabel}>Round timing</div>
-                <div className={styles.radioRow}>
-                  {[
-                    { value: "fast", label: "90s · sprint" },
-                    { value: "normal", label: "3 min · classic" },
-                    { value: "long", label: "5 min · relaxed" },
-                  ].map((opt) => (
-                    <Radio
-                      key={opt.value}
-                      name="time"
-                      value={opt.value}
-                      checked={timing === opt.value}
-                      label={opt.label}
-                      onChange={() => setTiming(opt.value)}
-                    />
-                  ))}
+          {me?.isHost && (
+            <>
+              <h3 id="lobby-settings" className={styles.h}>
+                Game settings
+              </h3>
+              <GlassPanel className={styles.settings}>
+                <div className={styles.setting}>
+                  <div className={styles.settingLabel}>Round timing</div>
+                  <div className={styles.radioRow}>
+                    {[
+                      { value: "fast", label: "90s · sprint" },
+                      { value: "normal", label: "3 min · classic" },
+                      { value: "long", label: "5 min · relaxed" },
+                    ].map((opt) => (
+                      <Radio
+                        key={opt.value}
+                        name="time"
+                        value={opt.value}
+                        checked={timing === opt.value}
+                        label={opt.label}
+                        onChange={() => setTiming(opt.value)}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div className={styles.setting}>
-                <div className={styles.settingLabel}>Languages</div>
-                <p className={styles.settingNote}>
-                  Each player picks their own language during Write and Reimplement. The AI
-                  judge normalises across them.
-                </p>
-              </div>
+                <div className={styles.setting}>
+                  <div className={styles.settingLabel}>Languages</div>
+                  <p className={styles.settingNote}>
+                    Each player picks their own language during Write and Reimplement. The AI
+                    judge normalises across them.
+                  </p>
+                </div>
 
-              <div className={styles.setting}>
-                <Checkbox
-                  checked={bots}
-                  onChange={setBots}
-                  label="Fill empty seats with bots if a player leaves"
-                />
-              </div>
-              <div className={styles.setting}>
-                <Checkbox
-                  checked={spectators}
-                  onChange={setSpectators}
-                  label="Allow spectators (read-only viewers)"
-                />
-              </div>
-            </GlassPanel>
-          ) : (
-            <GlassPanel className={styles.settings}>
-              <div className={styles.setting}>
-                <p className={styles.settingNote}>
-                  The host is configuring round timing, languages, and other options.
-                  You&apos;ll be taken into the game when they start.
-                </p>
-              </div>
-            </GlassPanel>
+                <div className={styles.setting}>
+                  <Checkbox
+                    checked={bots}
+                    onChange={setBots}
+                    label="Fill empty seats with bots if a player leaves"
+                  />
+                </div>
+                <div className={styles.setting}>
+                  <Checkbox
+                    checked={spectators}
+                    onChange={setSpectators}
+                    label="Allow spectators (read-only viewers)"
+                  />
+                </div>
+              </GlassPanel>
+            </>
           )}
 
           <div className={styles.actions}>
