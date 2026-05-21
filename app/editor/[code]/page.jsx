@@ -96,7 +96,13 @@ export default function EditorPage() {
     : false;
   const submittedCount = submissions.filter((s) => s.round_num === round).length;
 
-  const [language] = useState("python");
+  // 12-language picker — on submit, clamp to DB-safe set (python/javascript/java).
+  // The DB constraint only allows those three; other languages are visual-only until
+  // Andy widens the schema (see flagged conflict in handover).
+  const DB_SAFE_LANGS = ["python", "javascript", "java"];
+  const clampLang = (l) => DB_SAFE_LANGS.includes(l) ? l : "python";
+
+  const [language, setLanguage] = useState("python");
   const [editorValue, setEditorValue] = useState(FALLBACK_STARTER);
 
   const handleSubmit = async () => {
@@ -105,7 +111,7 @@ export default function EditorPage() {
       const res = await fetch(`/api/rooms/${code}/submit`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ content: editorValue, language }),
+        body: JSON.stringify({ content: editorValue, language: clampLang(language) }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -165,17 +171,22 @@ export default function EditorPage() {
         <div className={styles.write}>
           <div className={styles.seedBar}>
             <div className={styles.seedLeft}>
-              <span className={styles.seedTag}>YOUR PROMPT</span>
+              <span className={styles.seedTag}>YOU&apos;RE THE SEED</span>
               <h3 className={styles.seedTitle}>{promptText}</h3>
               <p className={styles.seedSub}>
                 Write a function that matches the prompt above. The next player will
-                see only your code — make it readable.
+                see <b>only your code</b> — make it readable.
               </p>
+              <div className={styles.seedTips}>
+                <span className={styles.seedTip}>✦ Keep it under ~20 lines</span>
+                <span className={styles.seedTip}>✦ Variable names matter</span>
+                <span className={styles.seedTip}>✦ No external libraries</span>
+              </div>
             </div>
             <div className={styles.seedRight}>
               <LanguagePicker
                 value={language}
-                disabled
+                onChange={setLanguage}
                 name="editor-language"
               />
             </div>

@@ -1,3 +1,12 @@
+.stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .split {
   display: grid;
   grid-template-columns: 1fr 1fr;
