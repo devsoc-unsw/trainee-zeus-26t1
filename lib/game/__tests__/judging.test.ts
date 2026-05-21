@@ -148,3 +148,100 @@ describe('judgeRoom', () => {
     expect(updateCalls[0].payload).toMatchObject({ status: 'failed' });
   });
 });
+
+describe('judgeRoom with Judge0 integration', () => {
+  it('passes Judge0 results to judgeChain when both Gemini cases + Judge0 succeed', async () => {
+    const { sb } = mockSupabase({
+      room: { id: 'r1', round_count: 3 },
+      submissions: [
+        { chain_index: 0, round_num: 1, round_type: 'code', content: 'orig', language: 'python' },
+        { chain_index: 0, round_num: 3, round_type: 'code', content: 'final', language: 'python' },
+      ],
+      chainScores: [{ chain_index: 0, status: 'pending' }],
+    });
+
+    const generateTestCases = vi.fn().mockResolvedValue([
+      { name: 'doubles', code: 'assert f(5) == 10' },
+    ]);
+    const runCases = vi.fn()
+      .mockResolvedValueOnce([{ name: 'doubles', passed: true }])   // original
+      .mockResolvedValueOnce([{ name: 'doubles', passed: false, error: 'AssertionError' }]); // final
+    const judgeChain = vi.fn().mockResolvedValue({ overallScore: 40, notes: 'failed behavioural' });
+
+    const result = await judgeRoom({ supabase: sb, roomId: 'r1', judgeChain, generateTestCases, runCases });
+    expect(result).toEqual({ judged: 1, failed: 0 });
+
+    expect(generateTestCases).toHaveBeenCalledWith({ code: 'orig', language: 'python' });
+    expect(runCases).toHaveBeenCalledTimes(2);
+    expect(runCases).toHaveBeenNthCalledWith(1, expect.objectContaining({ code: 'orig' }));
+    expect(runCases).toHaveBeenNthCalledWith(2, expect.objectContaining({ code: 'final' }));
+    expect(judgeChain).toHaveBeenCalledWith(expect.objectContaining({
+      originalCode: 'orig',
+      finalCode: 'final',
+      language: 'python',
+      testResults: {
+        original: [{ name: 'doubles', passed: true }],
+        final: [{ name: 'doubles', passed: false, error: 'AssertionError' }],
+      },
+    }));
+  });
+
+  it('falls back to code-only judging when generateTestCases returns []', async () => {
+    const { sb } = mockSupabase({
+      room: { id: 'r1', round_count: 3 },
+      submissions: [
+        { chain_index: 0, round_num: 1, round_type: 'code', content: 'orig', language: 'python' },
+        { chain_index: 0, round_num: 3, round_type: 'code', content: 'final', language: 'python' },
+      ],
+      chainScores: [{ chain_index: 0, status: 'pending' }],
+    });
+
+    const generateTestCases = vi.fn().mockResolvedValue([]);
+    const runCases = vi.fn();
+    const judgeChain = vi.fn().mockResolvedValue({ overallScore: 70, notes: 'no behavioural data' });
+
+    const result = await judgeRoom({ supabase: sb, roomId: 'r1', judgeChain, generateTestCases, runCases });
+    expect(result).toEqual({ judged: 1, failed: 0 });
+    expect(runCases).not.toHaveBeenCalled();
+
+    const judgeArgs = judgeChain.mock.calls[0][0];
+    expect(judgeArgs).not.toHaveProperty('testResults');
+  });
+
+  it('falls back to code-only when runCases returns [] (e.g. JUDGE0_API_KEY unset)', async () => {
+    const { sb } = mockSupabase({
+      room: { id: 'r1', round_count: 3 },
+      submissions: [
+        { chain_index: 0, round_num: 1, round_type: 'code', content: 'orig', language: 'python' },
+        { chain_index: 0, round_num: 3, round_type: 'code', content: 'final', language: 'python' },
+      ],
+      chainScores: [{ chain_index: 0, status: 'pending' }],
+    });
+
+    const generateTestCases = vi.fn().mockResolvedValue([{ name: 'a', code: 'assert True' }]);
+    const runCases = vi.fn().mockResolvedValue([]); // empty = key missing or non-python
+    const judgeChain = vi.fn().mockResolvedValue({ overallScore: 75, notes: 'code-only' });
+
+    const result = await judgeRoom({ supabase: sb, roomId: 'r1', judgeChain, generateTestCases, runCases });
+    expect(result).toEqual({ judged: 1, failed: 0 });
+    expect(judgeChain.mock.calls[0][0]).not.toHaveProperty('testResults');
+  });
+
+  it('still falls back if generateTestCases or runCases throws', async () => {
+    const { sb } = mockSupabase({
+      room: { id: 'r1', round_count: 3 },
+      submissions: [
+        { chain_index: 0, round_num: 1, round_type: 'code', content: 'orig', language: 'python' },
+        { chain_index: 0, round_num: 3, round_type: 'code', content: 'final', language: 'python' },
+      ],
+      chainScores: [{ chain_index: 0, status: 'pending' }],
+    });
+    const generateTestCases = vi.fn().mockRejectedValue(new Error('boom'));
+    const runCases = vi.fn();
+    const judgeChain = vi.fn().mockResolvedValue({ overallScore: 50, notes: 'fallback' });
+
+    const result = await judgeRoom({ supabase: sb, roomId: 'r1', judgeChain, generateTestCases, runCases });
+    expect(result).toEqual({ judged: 1, failed: 0 });
+    expect(judgeChain.mock.calls[0][0]).not.toHaveProperty('testResults');
+  });
+});

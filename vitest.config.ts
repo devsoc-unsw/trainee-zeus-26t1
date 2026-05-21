@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
-    exclude: ['node_modules', 'legacy', 'redesign', '.next'],
+    exclude: ['node_modules', 'legacy', 'redesign', '.next', 'tests/e2e'],
     // Dynamic imports of heavy modules (Supabase, Next.js) can exceed the
     // default 5s when many test files run in parallel.
     testTimeout: 15000,
