@@ -196,10 +196,63 @@
   user-select: none;
 }
 
-/* Narrow viewports — windows fill the viewport edge-to-edge with a hair of margin */
-@media (max-width: 720px) {
-  .win:not(.winMax) {
-    left: 4px !important;
-    width: calc(100vw - 8px) !important;
-  }
+/* Bottom-right resize handle. The diagonal grip is rendered with a stack
+   of repeating linear gradients so it reads as a classic OS resize hint
+   without needing an SVG. JS clamps the new dimensions to the viewport. */
+.resizeHandle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 5;
+  background-image:
+    linear-gradient(
+      135deg,
+      transparent 0%,
+      transparent 45%,
+      rgba(0, 0, 0, 0.25) 45%,
+      rgba(0, 0, 0, 0.25) 55%,
+      transparent 55%,
+      transparent 65%,
+      rgba(0, 0, 0, 0.25) 65%,
+      rgba(0, 0, 0, 0.25) 75%,
+      transparent 75%,
+      transparent 85%,
+      rgba(0, 0, 0, 0.25) 85%,
+      rgba(0, 0, 0, 0.25) 95%,
+      transparent 95%
+    );
+  border-bottom-right-radius: var(--r-4);
+  opacity: 0.45;
+  transition: opacity 120ms;
+}
+.resizeHandle:hover {
+  opacity: 1;
+}
+:global([data-theme="dark"]) .resizeHandle {
+  background-image:
+    linear-gradient(
+      135deg,
+      transparent 0%,
+      transparent 45%,
+      rgba(255, 255, 255, 0.35) 45%,
+      rgba(255, 255, 255, 0.35) 55%,
+      transparent 55%,
+      transparent 65%,
+      rgba(255, 255, 255, 0.35) 65%,
+      rgba(255, 255, 255, 0.35) 75%,
+      transparent 75%,
+      transparent 85%,
+      rgba(255, 255, 255, 0.35) 85%,
+      rgba(255, 255, 255, 0.35) 95%,
+      transparent 95%
+    );
+}
+.resizing,
+.resizing * {
+  cursor: nwse-resize !important;
+  user-select: none;
 }

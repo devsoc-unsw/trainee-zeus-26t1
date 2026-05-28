@@ -4,34 +4,54 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./Window.module.css";
 
 const TITLEBAR_HEIGHT = 28;
-const SUPERBAR_HEIGHT = 46;
-const MENUBAR_HEIGHT = 26;
 const MIN_TITLEBAR_VISIBLE = 80;
+const MIN_WIDTH = 480;
+const MIN_HEIGHT = 360;
+const VIEWPORT_MARGIN = 8; // breathing room against the wallpaper edge
+
+function viewport() {
+  if (typeof window === "undefined") return { vw: 1920, vh: 1080 };
+  return { vw: window.innerWidth, vh: window.innerHeight };
+}
 
 function clampPos(x, y, width) {
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 1080;
+  const { vw, vh } = viewport();
   const w = typeof width === "number" ? width : 320;
   const minX = MIN_TITLEBAR_VISIBLE - w;
   const maxX = vw - MIN_TITLEBAR_VISIBLE;
-  const minY = MENUBAR_HEIGHT;
-  const maxY = vh - SUPERBAR_HEIGHT - TITLEBAR_HEIGHT;
+  const minY = 0;
+  const maxY = vh - TITLEBAR_HEIGHT;
   return {
     x: Math.min(maxX, Math.max(minX, x)),
     y: Math.min(maxY, Math.max(minY, y)),
   };
 }
 
-function resolveCentered(width, height) {
-  if (typeof window === "undefined") return { x: 60, y: 60 };
-  const w = typeof width === "number" ? width : 720;
-  const h = typeof height === "number" ? height : 480;
+function clampDims(w, h) {
+  const { vw, vh } = viewport();
+  const maxW = Math.max(0, vw - VIEWPORT_MARGIN * 2);
+  const maxH = Math.max(0, vh - VIEWPORT_MARGIN * 2);
+  // If the viewport is narrower/shorter than our preferred minimum, the
+  // viewport ceiling wins so the window never overflows.
+  const minW = Math.min(MIN_WIDTH, maxW);
+  const minH = Math.min(MIN_HEIGHT, maxH);
   return {
-    x: Math.max(8, Math.round((window.innerWidth - w) / 2)),
-    y: Math.max(
-      MENUBAR_HEIGHT + 4,
-      Math.round((window.innerHeight - h - SUPERBAR_HEIGHT) / 2) + MENUBAR_HEIGHT,
-    ),
+    w: Math.max(minW, Math.min(maxW, w)),
+    h: Math.max(minH, Math.min(maxH, h)),
+  };
+}
+
+function resolveInitialDims(width, height) {
+  const w = typeof width === "number" ? width : 720;
+  const h = typeof height === "number" ? height : 520;
+  return clampDims(w, h);
+}
+
+function resolveCentered(w, h) {
+  if (typeof window === "undefined") return { x: 60, y: 60 };
+  return {
+    x: Math.max(VIEWPORT_MARGIN, Math.round((window.innerWidth - w) / 2)),
+    y: Math.max(VIEWPORT_MARGIN, Math.round((window.innerHeight - h) / 2)),
   };
 }
 
@@ -63,41 +83,52 @@ export default function Window({
   const shouldCenter =
     centered || (x === undefined && y === undefined && typeof window !== "undefined");
 
+  // Internal dims state — width/height props become the *initial* size,
+  // clamped to the viewport. The user can grow/shrink via the resize handle.
+  const [dims, setDims] = useState(() => resolveInitialDims(width, height));
+
   const [pos, setPos] = useState(() => {
     if (typeof window === "undefined") return { x: 0, y: 0 };
-    if (shouldCenter) return resolveCentered(width, height);
+    if (shouldCenter) return resolveCentered(dims.w, dims.h);
     return { x: x ?? 80, y: y ?? 80 };
   });
   const [mounted, setMounted] = useState(false);
   const [maximized, setMaximized] = useState(false);
   const draggedRef = useRef(false);
+  const userResizedRef = useRef(false);
   const dragOrigin = useRef(null);
+  const resizeOrigin = useRef(null);
   const [dragging, setDragging] = useState(false);
+  const [resizing, setResizing] = useState(false);
   const [activeZ, setActiveZ] = useState(0);
 
   /* Re-resolve initial position on mount so SSR (where window is undefined)
      hands off cleanly to a real client-computed center. */
   useEffect(() => {
     setMounted(true);
+    const next = resolveInitialDims(width, height);
+    setDims(next);
     if (shouldCenter && !draggedRef.current) {
-      setPos(resolveCentered(width, height));
+      setPos(resolveCentered(next.w, next.h));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* Re-center on viewport resize while the user hasn't dragged yet. */
+  /* On viewport resize: re-clamp dims so the window never exceeds the
+     visible area, then re-clamp/re-center position. */
   useEffect(() => {
     const onResize = () => {
       if (maximized) return;
+      setDims((d) => clampDims(d.w, d.h));
       if (draggedRef.current) {
-        setPos((p) => clampPos(p.x, p.y, width));
+        setPos((p) => clampPos(p.x, p.y, dims.w));
       } else if (shouldCenter) {
-        setPos(resolveCentered(width, height));
+        setPos(resolveCentered(dims.w, dims.h));
       }
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [shouldCenter, width, height, maximized]);
+  }, [shouldCenter, maximized, dims.w, dims.h]);
 
   const handleTitlePointerDown = (e) => {
     if (e.target.closest(`.${styles.tl}`)) return;
@@ -119,7 +150,7 @@ export default function Window({
   const handleTitlePointerMove = (e) => {
     if (!dragging || !dragOrigin.current) return;
     const { startX, startY, originX, originY } = dragOrigin.current;
-    setPos(clampPos(originX + e.clientX - startX, originY + e.clientY - startY, width));
+    setPos(clampPos(originX + e.clientX - startX, originY + e.clientY - startY, dims.w));
   };
 
   const handleTitlePointerUp = (e) => {
@@ -129,6 +160,45 @@ export default function Window({
     setDragging(false);
   };
 
+  const handleResizePointerDown = (e) => {
+    if (e.button !== 0) return;
+    if (maximized) return;
+    e.stopPropagation();
+    userResizedRef.current = true;
+    resizeOrigin.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      originW: dims.w,
+      originH: dims.h,
+    };
+    setResizing(true);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  const handleResizePointerMove = (e) => {
+    if (!resizing || !resizeOrigin.current) return;
+    const { startX, startY, originW, originH } = resizeOrigin.current;
+    const rawW = originW + (e.clientX - startX);
+    const rawH = originH + (e.clientY - startY);
+    const { vw, vh } = viewport();
+    // Also clamp so the right/bottom edge stays inside the viewport from
+    // the window's current top-left position.
+    const maxFromPosW = vw - pos.x - VIEWPORT_MARGIN;
+    const maxFromPosH = vh - pos.y - VIEWPORT_MARGIN;
+    const next = clampDims(
+      Math.min(rawW, maxFromPosW),
+      Math.min(rawH, maxFromPosH),
+    );
+    setDims(next);
+  };
+
+  const handleResizePointerUp = (e) => {
+    if (!resizing) return;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    resizeOrigin.current = null;
+    setResizing(false);
+  };
+
   const handleMax = useCallback(() => {
     setMaximized((m) => !m);
     onMax?.();
@@ -136,22 +206,22 @@ export default function Window({
 
   const dynamicStyle = maximized
     ? {
-        left: 8,
-        top: MENUBAR_HEIGHT + 4,
-        width: "calc(100vw - 16px)",
-        height: `calc(100vh - ${MENUBAR_HEIGHT + SUPERBAR_HEIGHT + 8}px)`,
+        left: VIEWPORT_MARGIN,
+        top: VIEWPORT_MARGIN,
+        width: `calc(100vw - ${VIEWPORT_MARGIN * 2}px)`,
+        height: `calc(100vh - ${VIEWPORT_MARGIN * 2}px)`,
       }
     : {
         left: pos.x,
         top: pos.y,
-        width: typeof width === "number" ? `${width}px` : width,
-        height: typeof height === "number" ? `${height}px` : height,
+        width: `${dims.w}px`,
+        height: `${dims.h}px`,
         minHeight: typeof minHeight === "number" ? `${minHeight}px` : minHeight,
       };
 
   return (
     <div
-      className={`${styles.win} ${active ? styles.winActive : ""} ${maximized ? styles.winMax : ""} ${dragging ? styles.dragging : ""} ${mounted ? styles.mounted : ""} ${className}`}
+      className={`${styles.win} ${active ? styles.winActive : ""} ${maximized ? styles.winMax : ""} ${dragging ? styles.dragging : ""} ${resizing ? styles.resizing : ""} ${mounted ? styles.mounted : ""} ${className}`}
       style={{ ...dynamicStyle, zIndex: zIndex ?? 200 + activeZ }}
       onPointerDownCapture={() => {
         setActiveZ((z) => z + 1);
@@ -230,6 +300,18 @@ export default function Window({
       >
         {children}
       </div>
+
+      {!maximized && (
+        <div
+          className={styles.resizeHandle}
+          onPointerDown={handleResizePointerDown}
+          onPointerMove={handleResizePointerMove}
+          onPointerUp={handleResizePointerUp}
+          onPointerCancel={handleResizePointerUp}
+          role="separator"
+          aria-label="Resize window"
+        />
+      )}
     </div>
   );
 }
