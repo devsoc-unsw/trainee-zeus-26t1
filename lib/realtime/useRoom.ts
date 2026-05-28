@@ -69,6 +69,7 @@ export function useRoom(roomId: string | null): UseRoomState {
 
   useEffect(() => {
     if (!roomId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState({ room: null, players: [], submissions: [], chainScores: [], loading: false, error: null });
       return;
     }
