@@ -13,26 +13,42 @@ function StatusDot({ state }) {
 }
 
 function PlayerRail({ players, phaseIdx, tip }) {
+  const activeCount = players.filter((p) => !p.isInactive).length;
   return (
     <aside className={styles.rail}>
       <div className={styles.railSection}>
         <div className={styles.railTitle}>
-          Players · {players.length} of {players.length}
+          Players · {activeCount} of {players.length}
         </div>
         <div className={styles.railPlayers}>
           {players.map((p) => (
-            <div key={p.name} className={`${styles.railPlayer} ${p.you ? styles.railPlayerYou : ""}`}>
+            <div
+              key={p.id ?? p.name}
+              className={`${styles.railPlayer} ${p.you ? styles.railPlayerYou : ""} ${p.isInactive ? styles.railPlayerInactive : ""}`}
+            >
               <PlayerAvatar name={p.name} size={28} />
               <div className={styles.railPlayerInfo}>
                 <div className={styles.railPlayerName}>
                   {p.name}
                   {p.you && <span className={styles.railYou}>you</span>}
+                  {p.isInactive && <span className={styles.railKicked}>kicked</span>}
                 </div>
                 <div className={styles.railPlayerState}>
                   <StatusDot state={p.status ?? "waiting"} />
                   <span>{p.statusText ?? ""}</span>
                 </div>
               </div>
+              {p.onKick && !p.isInactive && (
+                <button
+                  type="button"
+                  className={styles.railKickBtn}
+                  onClick={p.onKick}
+                  aria-label={`Kick ${p.name}`}
+                  title={`Kick ${p.name} from the game`}
+                >
+                  ×
+                </button>
+              )}
             </div>
           ))}
         </div>

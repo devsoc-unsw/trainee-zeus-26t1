@@ -20,7 +20,7 @@ export async function GET(
   const sb = getServiceClient();
   const { data, error } = await sb
     .from('players')
-    .select('id, seat_index, is_host')
+    .select('*')
     .eq('id', session.playerId)
     .eq('room_id', session.roomId)
     .maybeSingle();
@@ -29,6 +29,10 @@ export async function GET(
   }
   if (!data) {
     return NextResponse.json({ error: { code: 'ROOM_NOT_FOUND', message: 'player or room missing' } }, { status: 404 });
+  }
+  // Mid-game soft-kick (migration 023+): is_active=false acts like "gone".
+  if ((data as { is_active?: boolean }).is_active === false) {
+    return NextResponse.json({ error: { code: 'ROOM_NOT_FOUND', message: 'kicked from room' } }, { status: 404 });
   }
 
   return NextResponse.json({

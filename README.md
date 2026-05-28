@@ -56,6 +56,7 @@ sql/019_narrow_languages_to_3.sql
 sql/020_phase_duration.sql           ← host setting: phase duration
 sql/021_python_only.sql              ← DB CHECK constraint: python or NULL
 sql/022_force_advance.sql            ← force_advance_timer + flush_phase RPCs
+sql/023_kick_mid_game.sql            ← players.is_active + kick_player in-game soft-delete
 ```
 
 ## Tests

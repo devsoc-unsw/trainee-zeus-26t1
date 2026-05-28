@@ -32,13 +32,20 @@ export async function GET(request: NextRequest) {
 
   const { data: player } = await sb
     .from('players')
-    .select('id')
+    .select('*')
     .eq('id', session.playerId)
     .eq('room_id', session.roomId)
     .maybeSingle();
   if (!player) {
-    // Player was kicked or left from another tab — clear the stale cookie.
+    // Player was kicked-from-lobby or left from another tab — clear cookie.
     const res = NextResponse.json({ error: 'player gone' }, { status: 401 });
+    clearSessionCookie(res);
+    return res;
+  }
+  // Mid-game soft-kick (migration 023+): is_active=false acts like "gone".
+  // Pre-migration the column doesn't exist and this check is a no-op.
+  if ((player as { is_active?: boolean }).is_active === false) {
+    const res = NextResponse.json({ error: 'player kicked' }, { status: 401 });
     clearSessionCookie(res);
     return res;
   }

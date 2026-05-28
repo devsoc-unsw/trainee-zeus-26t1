@@ -183,16 +183,45 @@ export default function EditorPage() {
     }
   };
 
-  // Map nextjs_merge's PlayerRow array onto the {name, you, status, statusText}
-  // shape that GameShell's PlayerRail expects.
+  const handleKick = async (targetId, targetName) => {
+    if (typeof window !== "undefined"
+        && !window.confirm(`Kick ${targetName} from the game? Their remaining submissions will be filled in as empty.`)) return;
+    try {
+      const res = await fetch(`/api/rooms/${code}/kick`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ playerId: targetId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Kick failed: ${err.error?.message ?? res.status}`);
+      }
+    } catch (err) {
+      console.error("[editor] kick failed:", err);
+    }
+  };
+
+  // Self-kick detection: if I'm soft-deleted (is_active=false) or hard-
+  // deleted (no row), bail home.
+  useEffect(() => {
+    if (loading || !me?.playerId || players.length === 0) return;
+    const self = players.find((p) => p.id === me.playerId);
+    if (!self || self.is_active === false) router.replace("/");
+  }, [players, me?.playerId, loading, router]);
+
   const shellPlayers = players.map((p) => {
     const submittedThis = submissions.some((s) => s.round_num === round && s.author_id === p.id);
     const isYou = me?.playerId === p.id;
+    const isInactive = p.is_active === false;
+    const canKick = !!me?.isHost && !isYou && !p.is_host && !isInactive;
     return {
+      id: p.id,
       name: p.name,
       you: isYou,
-      status: submittedThis ? "submitted" : (isYou ? "active" : "waiting"),
-      statusText: submittedThis ? "Submitted" : (isYou ? "Your turn" : "Writing…"),
+      isInactive,
+      status: isInactive ? "danger" : submittedThis ? "submitted" : (isYou ? "active" : "waiting"),
+      statusText: isInactive ? "Kicked" : submittedThis ? "Submitted" : (isYou ? "Your turn" : "Writing…"),
+      onKick: canKick ? () => handleKick(p.id, p.name) : undefined,
     };
   });
 

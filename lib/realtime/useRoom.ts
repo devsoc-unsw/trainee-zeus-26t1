@@ -22,6 +22,9 @@ export type PlayerRow = {
   is_host: boolean;
   seat_index: number | null;
   created_at: string;
+  // Added in migration 023. Optional in the type so consumers handle the
+  // pre-migration case where the column doesn't exist (treated as active).
+  is_active?: boolean;
 };
 export type SubmissionRow = {
   id: string;

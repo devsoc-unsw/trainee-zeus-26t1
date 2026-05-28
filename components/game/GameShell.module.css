@@ -65,9 +65,50 @@
   gap: 10px;
   padding: 5px 8px;
   border-radius: 6px;
+  position: relative;
 }
 .railPlayerYou {
   background: rgba(120, 200, 255, 0.18);
+}
+.railPlayerInactive {
+  opacity: 0.45;
+  text-decoration: line-through;
+  text-decoration-color: rgba(0, 0, 0, 0.3);
+}
+.railKicked {
+  font-size: 9px;
+  font-weight: 700;
+  background: var(--status-danger);
+  color: #fff;
+  padding: 0 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+  text-decoration: none;
+}
+.railKickBtn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 120ms, background-color 120ms, color 120ms;
+}
+.railPlayer:hover .railKickBtn,
+.railKickBtn:focus-visible {
+  opacity: 1;
+}
+.railKickBtn:hover {
+  background: var(--status-danger);
+  color: #fff;
 }
 .railPlayerInfo {
   flex: 1;
