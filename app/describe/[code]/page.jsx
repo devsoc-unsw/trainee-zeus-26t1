@@ -12,6 +12,7 @@ import { CTLogoMark } from "@/components/brand/CTLogo";
 import { useRoom } from "@/lib/realtime/useRoom";
 import { usePhaseTimer } from "@/lib/game/usePhaseTimer";
 import { chainForPlayer } from "@/lib/game/seating";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/storage/drafts";
 import styles from "./page.module.css";
 
 function useRoomIdFromCode(code) {
@@ -102,6 +103,29 @@ export default function DescribePage() {
   const submittedCount = submissions.filter((s) => s.round_num === round).length;
 
   const [description, setDescription] = useState("");
+
+  // Draft autosave (localStorage) — see editor page for rationale.
+  const draftLoadedRef = useRef(false);
+  useEffect(() => {
+    if (draftLoadedRef.current) return;
+    if (!room || !code) return;
+    draftLoadedRef.current = true;
+    const draft = loadDraft({ code, round, phase: "describing" });
+    if (draft?.content) setDescription(draft.content);
+  }, [room?.id, code, round]);
+  useEffect(() => {
+    if (!draftLoadedRef.current) return;
+    if (!code || !room) return;
+    if (hasSubmitted) return;
+    const t = setTimeout(() => {
+      saveDraft({ code, round, phase: "describing", content: description });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [description, code, round, hasSubmitted, room?.id]);
+  useEffect(() => {
+    if (!hasSubmitted || !code) return;
+    clearDraft({ code, round, phase: "describing" });
+  }, [hasSubmitted, code, round]);
 
   const handleSubmit = async () => {
     if (!code) return;

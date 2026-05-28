@@ -10,6 +10,7 @@ import { CTLogoMark } from "@/components/brand/CTLogo";
 import { useRoom } from "@/lib/realtime/useRoom";
 import { usePhaseTimer } from "@/lib/game/usePhaseTimer";
 import { chainForPlayer } from "@/lib/game/seating";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/storage/drafts";
 import styles from "./page.module.css";
 
 function useRoomIdFromCode(code) {
@@ -105,6 +106,32 @@ export default function EditorPage() {
 
   const [language, setLanguage] = useState("python");
   const [editorValue, setEditorValue] = useState(FALLBACK_STARTER);
+
+  // Draft autosave (localStorage). Restores in-progress text after a tab
+  // close or refresh. Identity persistence is handled separately by the
+  // signed ct_player cookie + /api/me.
+  const draftLoadedRef = useRef(false);
+  useEffect(() => {
+    if (draftLoadedRef.current) return;
+    if (!room || !code) return;
+    draftLoadedRef.current = true;
+    const draft = loadDraft({ code, round, phase: "writing" });
+    if (draft?.content) setEditorValue(draft.content);
+    if (draft?.language) setLanguage(draft.language);
+  }, [room?.id, code, round]);
+  useEffect(() => {
+    if (!draftLoadedRef.current) return;
+    if (!code || !room) return;
+    if (hasSubmitted) return;
+    const t = setTimeout(() => {
+      saveDraft({ code, round, phase: "writing", content: editorValue, language });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [editorValue, language, code, round, hasSubmitted, room?.id]);
+  useEffect(() => {
+    if (!hasSubmitted || !code) return;
+    clearDraft({ code, round, phase: "writing" });
+  }, [hasSubmitted, code, round]);
 
   const handleSubmit = async () => {
     if (!code) return;

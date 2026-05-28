@@ -9,6 +9,18 @@ import { CTLogoMark } from "@/components/brand/CTLogo";
 import { loadNickname, saveNickname } from "@/lib/storage/nickname";
 import styles from "./page.module.css";
 
+function routeForPhase(phase, code) {
+  switch (phase) {
+    case "lobby":          return `/waiting-room/${code}`;
+    case "writing":        return `/editor/${code}`;
+    case "describing":     return `/describe/${code}`;
+    case "reimplementing": return `/reimplement/${code}`;
+    case "reveal":         return `/reveal/${code}`;
+    case "ended":          return `/reveal/${code}`;
+    default:               return null;
+  }
+}
+
 /* Two-step home wizard with the hybrid design language:
    Step 1 — nickname
    Step 2 — choice cards (Create / Join / Quick play)
@@ -25,11 +37,42 @@ export default function Home() {
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // While we ask /api/me whether the cookie maps to a still-existing
+  // game, suppress the wizard. Without this the wizard would flash for
+  // ~100ms before we replace() into the active room.
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     const saved = loadNickname();
     if (saved) setNickname(saved);
   }, []);
+
+  // Rejoin path: if the signed cookie maps to a live room+player, skip
+  // the wizard and route the player straight back to whatever phase the
+  // room is in. /api/me clears the cookie itself if the room/player is gone.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/me");
+        if (cancelled) return;
+        if (!res.ok) {
+          setChecking(false);
+          return;
+        }
+        const data = await res.json();
+        const route = routeForPhase(data.phase, data.roomCode);
+        if (route) {
+          router.replace(route);
+        } else {
+          setChecking(false);
+        }
+      } catch {
+        if (!cancelled) setChecking(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [router]);
 
   const persistNickname = () => {
     const trimmed = nickname.trim();
@@ -87,6 +130,23 @@ export default function Home() {
       setJoining(false);
     }
   };
+
+  if (checking) {
+    return (
+      <Window
+        title="Code Telephone"
+        subtitle="Checking your session…"
+        icon={<CTLogoMark size={14} />}
+        width={520}
+        height={460}
+        centered
+      >
+        <div className={styles.home} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <p style={{ color: "var(--text-muted)" }}>One moment…</p>
+        </div>
+      </Window>
+    );
+  }
 
   return (
     <Window
