@@ -4,12 +4,12 @@ A multiplayer code-telephone game built on Next.js + Supabase.
 
 ## Stack
 
-- **Next.js 16** (App Router, TypeScript, plain CSS Modules) — the whole app
-- **Supabase** — Postgres for state, Realtime for fan-out
-- **Google Gemini** — AI judge (added in Plan 3)
-- **Judge0** — optional code execution (added in Plan 4)
-
-The old FastAPI backend lives under `legacy/backend/` (gitignored) and is no longer deployed.
+- **Next.js 16** (App Router, TypeScript with `allowJs`, plain CSS Modules) — the whole app, deployed as one Vercel serverless app
+- **Supabase Postgres** — single source of truth for room state. Writes go through Next.js Route Handlers with the service-role key; browsers get RLS-restricted read-only access
+- **Supabase Realtime** (`postgres_changes`) — fan-out for room/player/submission/score updates; no WebSocket server of our own
+- **Signed-cookie auth** — HMAC-SHA256 nickname + room code (`ct_player`), HttpOnly, SameSite=Lax, 24h. No Supabase Auth, no accounts
+- **Google Gemini 2.5 Flash** — AI judge that scores how well each reconstructed function matches the original (called via `fetch`, no SDK)
+- **Judge0** (optional) — sandboxed code execution for behavioural scoring on top of the semantic score. Disabled if `JUDGE0_API_KEY` is unset
 
 ## Prerequisites
 
@@ -21,6 +21,7 @@ The old FastAPI backend lives under `legacy/backend/` (gitignored) and is no lon
 ```bash
 cp .env.example .env.local
 # Fill in SUPABASE_*, NEXT_PUBLIC_SUPABASE_*, SESSION_SECRET, GEMINI_API_KEY
+# Optional: JUDGE0_API_KEY (+ JUDGE0_API_HOST) to enable behavioural scoring
 
 npm install
 npm run dev
@@ -32,12 +33,16 @@ npm run dev
 Apply migrations in order in the Supabase SQL editor:
 
 ```
-sql/001_base_schema.sql
+sql/001_base_schema.sql              ← rooms, players, prompts
 sql/002_rooms_round_count.sql
-sql/003_scoring_and_elo.sql        ← dormant tables (users/games/ELO)
-sql/004_submissions_and_phases.sql ← submissions + phase + seat_index
-sql/005_chain_scores.sql           ← chain_scores
-sql/006_rls.sql                    ← RLS policies (read-only for clients)
+sql/003_scoring_and_elo.sql          ← dormant tables (users/games/ELO) — see Roadmap
+sql/004_submissions_and_phases.sql   ← submissions + phase + seat_index
+sql/005_chain_scores.sql             ← chain_scores
+sql/006_rls.sql                      ← RLS policies (read-only for clients)
+sql/007_leave_room_proc.sql          ← leave_room RPC with host transfer
+sql/008_realtime_publications.sql    ← supabase_realtime publication
+sql/009_round_rpcs_and_realtime.sql  ← start_game / submit_turn / reset_game RPCs
+sql/010_chain_scores_realtime.sql    ← chain_scores in realtime publication
 ```
 
 ## Tests
@@ -93,13 +98,24 @@ After `vercel --prod` succeeds, the CLI prints a `*.vercel.app` URL. Open it in 
 
 `vercel env rm <NAME> production` then re-add. The next deploy picks up the change. Server-only vars take effect immediately on the next request; `NEXT_PUBLIC_*` vars require a fresh build, so trigger one with `vercel --prod` or push a commit.
 
-## Plans
+## Implementation history
 
-Implementation plans live in `docs/superpowers/plans/`. This codebase is the result of:
+The current codebase is the result of five plans, all on `main`:
 
-1. `2026-05-20-foundation.md` — repo merge + schema (this plan)
-2. Lobby + room lifecycle (Plan 2)
-3. Game mechanic + AI judge (Plan 3)
-4. Judge0 + deploy polish (Plan 4)
+1. **Foundation** — repo hoist (Next.js to root), TS config, archive the FastAPI backend, migrations 001–006, both Supabase clients
+2. **Lobby** — signed-cookie identity, `/api/rooms` create/join/leave, Realtime hook, waiting-room screen
+3. **Round mechanic** — PL/pgSQL RPCs (`start_game`, `submit_turn`, `reset_game`), seat math, editor / describe / reimplement / reveal screens
+4. **AI judging** — Gemini integration, `POST /api/judge/[roomId]` via `after()`, streaming `chain_scores` on the reveal page
+5. **Judge0 + deploy** — behavioural scoring, Playwright e2e smoke test, Vercel deploy docs
 
-The source design spec is `docs/superpowers/specs/2026-05-20-nextjs-merge-design.md`.
+For higher-level architecture and the original design rationale, see `docs/project-briefing.md`, `docs/ui-design.md`, and `docs/API.md`.
+
+## Roadmap / known gaps
+
+Real features still to build (or finish) — none of these block the current demo, but they're the obvious next moves:
+
+- **ELO** — `elo_history` table from migration 003 is dormant; the reveal screen shows an ELO panel with placeholder `—` rows
+- **Per-phase timers** — `rooms.phase_ends_at` is reserved in the schema but never advanced; rounds are currently host-paced
+- **Draft autosave** — lost when the old WebSocket layer was removed; editor needs a periodic save back to Supabase
+- **Language picker** — UI is wired but cosmetic; all submissions hard-coded to Python for the demo
+- **Waiting-room settings** — round timing / bots / spectators toggles are non-functional placeholders
