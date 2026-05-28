@@ -5,8 +5,6 @@
 **/.next
 **/coverage
 **/.vercel
-**/legacy
-**/redesign
 **/docs
 **/.claude
 **/test-results

@@ -28,24 +28,14 @@ The shipping v1 covers the chain and the reveal. Beyond that:
 
 ## Tech stack
 
-| Layer        | Choice |
-|--------------|--------|
-| Frontend     | Next.js (App Router), plain JavaScript, CSS Modules |
-| Backend      | FastAPI (Python) |
-| Persistent DB | PostgreSQL — users, ELO, replays |
-| Cache / game state | Redis — current round, active connections, ephemeral state |
-| Realtime     | WebSockets on FastAPI (Socket.io vs. native TBD) |
-| Code execution | Judge0 API |
-| AI scoring   | Anthropic Claude API |
-| Auth scaffolding | Supabase JS client (already wired in the frontend) |
+| Layer | Choice |
+|-------|--------|
+| App | Next.js 16 (App Router, TypeScript with `allowJs`, plain CSS Modules) — frontend + API routes in a single Vercel deploy |
+| Database | Supabase Postgres — single source of truth for room/player/submission state |
+| Realtime | Supabase Realtime (`postgres_changes`) — fan-out for room/player/submission updates |
+| Auth | Signed-cookie nickname + room code (HMAC-SHA256), HttpOnly, 24h — no accounts, no Supabase Auth |
 
-### Why split the frontend and backend
-
-Next.js API routes are designed for request/response. The game is a long-lived shared state where many clients need to see each other's actions in real time, so the server has to hold state and push to clients. A separate FastAPI process gives us:
-
-- A persistent WebSocket server that isn't fighting Next.js's serverless model.
-- An async runtime that's comfortable orchestrating background work — Judge0 calls, AI scoring, ELO updates.
-- An authoritative source of truth that all clients reconcile against.
+An earlier draft of this brief proposed a split FastAPI/Redis/Anthropic-Claude stack. That was collapsed into the single Next.js + Supabase app above before any of those pieces were built, because Supabase Realtime gave us the live-state guarantee we'd been planning to write a WebSocket server for.
 
 ## Visual direction
 
@@ -65,28 +55,16 @@ The detailed visual system — colour tokens, gradient stops extracted from the 
 
 This is a DevSoc (UNSW Software Development Society) training project: two training leads and three trainees. Org GitHub at https://github.com/orgs/devsoc-unsw/repositories.
 
-DevSoc's house stack is Next.js + TypeScript. This project diverges by adding a Python backend (justified above) and by using plain JS on the frontend for the initial scaffold — TypeScript can be reintroduced later if useful.
+DevSoc's house stack is Next.js + TypeScript; this project sticks with that, hoisted into a single repo (no separate backend process).
 
 ## Constraints worth flagging
 
-- **Scope is ambitious by design.** This isn't a weekend project; the chain, the judge, the realtime layer, and the polish on the UI all matter.
-- **No MERN.** PostgreSQL over MongoDB, TypeScript or Python over plain JS for any code that grows beyond a prototype.
-- **Judge0 owns the code-execution sandboxing problem.** We don't run untrusted code ourselves.
-- **Redis for game state, Postgres for persistence.** Rounds are short-lived and high-frequency; Redis is the right shape. ELO, users, and replays survive past a round and belong in Postgres.
+- **Scope is ambitious by design.** This isn't a weekend project; the chain, the realtime layer, and the polish on the UI all matter.
+- **Postgres is the source of truth.** Browsers get RLS-restricted read-only access; all writes go through Next.js Route Handlers using the service-role key.
+- **No untrusted code execution.** The game doesn't run player code anywhere — the round content is treated as text. (A previous design proposed Judge0 for behavioural scoring; that was removed along with the AI judge.)
 
 ## Current phase
 
-We are building the static UI only. No game logic, no realtime layer, no API integration. The goal is for every screen to render correctly with mocked data, so that when the backend comes online there is a complete visual surface to wire it to.
+The static UI, lobby, and round mechanic are shipped. Each route renders against live Supabase state via the `useRoom` Realtime hook, and `start_game` / `submit_turn` / `reset_game` RPCs drive phase transitions server-side.
 
-Open product/integration questions are deferred until the static UI is in place:
-
-- Judge0 API key — not needed yet.
-- Anthropic API key — not needed yet.
-- WebSocket transport choice (Socket.io vs. native) — not needed yet.
-- Auth model (accounts vs. nickname + room code) — not needed yet.
-
-Resolved:
-
-- **Frontend boilerplate** stays. Next.js 16 (App Router, plain JS, CSS Modules) in `frontend/`, FastAPI in `backend/`.
-- **Deployment** will split the two services across separate hosts; specifics TBD.
-- **Design assets** are limited to the Aero UI source SVGs at [`./aero-reference/`](./aero-reference/). All CSS is built from those.
+Design assets are limited to the Aero UI source SVGs at [`./aero-reference/`](./aero-reference/). All CSS is built from those.

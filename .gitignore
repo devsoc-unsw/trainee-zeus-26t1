@@ -1,33 +1,8 @@
-# Virtual environments
-.venv/
-venv/
-env/
 .DS_Store
-# Python cache
-__pycache__/
-*.py[cod]
-*.pyo
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
-*.egg
 
 # Environment files
 .env
 .env.local
-
-# pytest
-.pytest_cache/
-.coverage
-htmlcov/
-
-# mypy
-.mypy_cache/
-
-# ruff / linting
-.ruff_cache/
 
 # Node.js
 node_modules/
@@ -45,12 +20,12 @@ coverage/
 # Vercel
 .vercel
 
-# Archived FastAPI backend (post-Next.js merge — kept locally for reference only)
-legacy/
-
 # Skills
 agents
 
 # Playwright
 test-results/
 playwright-report/
+
+# Editor / local CLI tooling
+.antigravitycli/

@@ -109,7 +109,7 @@ export default function RevealPage() {
   const code = (params?.code || "").toString().toUpperCase();
 
   const { roomId, notFound } = useRoomIdFromCode(code);
-  const { room, players, submissions, chainScores, loading, error } = useRoom(roomId);
+  const { room, players, submissions, loading, error } = useRoom(roomId);
   const me = useMe(code);
 
   useEffect(() => {
@@ -118,21 +118,6 @@ export default function RevealPage() {
   }, [room?.phase, code, router]);
 
   useEffect(() => { if (notFound) router.replace("/"); }, [notFound, router]);
-
-  // Trigger AI judging once on mount when phase=reveal. Idempotent — the
-  // route + judgeRoom skip chains whose status is already done/failed.
-  useEffect(() => {
-    if (!roomId || !room || room.phase !== "reveal") return;
-    let cancelled = false;
-    (async () => {
-      try {
-        await fetch(`/api/judge/${roomId}`, { method: "POST" });
-      } catch (err) {
-        if (!cancelled) console.warn("[reveal] judge trigger failed:", err);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [roomId, room?.phase]);
 
   const chains = chainsFromSubmissions(submissions, players);
 
@@ -148,30 +133,6 @@ export default function RevealPage() {
   const reconstructedSegment = chain
     ? [...(chain.segments ?? [])].reverse().find((s) => s.round_type === "code") ?? null
     : null;
-
-  const scoreRow = chain ? chainScores.find((s) => s.chain_index === chain.chainIndex) : null;
-  const targetScore = scoreRow?.status === "done" ? Math.round(scoreRow.overall_score ?? 0) : null;
-
-  // Animated counter that runs whenever targetScore changes from null → number.
-  const [counted, setCounted] = useState(0);
-  const [lastTarget, setLastTarget] = useState(targetScore);
-  if (targetScore !== lastTarget) {
-    setLastTarget(targetScore);
-    setCounted(0);
-  }
-  useEffect(() => {
-    if (targetScore == null) return;
-    let i = 0;
-    const id = setInterval(() => {
-      i += 3;
-      if (i >= targetScore) {
-        i = targetScore;
-        clearInterval(id);
-      }
-      setCounted(i);
-    }, 30);
-    return () => clearInterval(id);
-  }, [targetScore]);
 
   const handlePlayAgain = async () => {
     if (!code) return;
@@ -193,7 +154,7 @@ export default function RevealPage() {
   return (
     <Window
       title={`Code Telephone — Reveal — ${code}`}
-      subtitle="Semantic match scored by the AI judge"
+      subtitle="The chain from prompt to reconstruction"
       icon={<CTLogoMark size={14} />}
       width={1080}
       height={680}
@@ -262,57 +223,6 @@ export default function RevealPage() {
                   </div>
                 )}
               </div>
-
-              <aside className={styles.scoreCard} aria-label="Round score">
-                <div className={styles.scoreBlock}>
-                  <div className={styles.scoreLabel}>Semantic match</div>
-                  {!scoreRow || scoreRow.status === "pending" ? (
-                    <>
-                      <div className={styles.scoreNum}>—</div>
-                      <p className={styles.scoreNote}>Scoring this chain…</p>
-                    </>
-                  ) : scoreRow.status === "failed" ? (
-                    <>
-                      <div className={styles.scoreNum}>—</div>
-                      <p className={styles.scoreNote}>
-                        Scoring unavailable: {scoreRow.notes ?? "unknown error"}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <div className={styles.scoreNum}>
-                        {counted}
-                        <span>%</span>
-                      </div>
-                      <div
-                        className={styles.scoreBar}
-                        role="progressbar"
-                        aria-valuenow={counted}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                      >
-                        <div className={styles.scoreBarFill} style={{ width: counted + "%" }} />
-                      </div>
-                      {scoreRow.notes && (
-                        <p className={styles.scoreNote}>{scoreRow.notes}</p>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {players.length > 0 && (
-                  <div className={styles.elo}>
-                    <div className={styles.eloLabel}>ELO change</div>
-                    {players.map((p) => (
-                      <div className={styles.eloRow} key={p.id}>
-                        <PlayerAvatar name={p.name} size={20} />
-                        <span>{p.name}</span>
-                        <span className={styles.eloDelta}>—</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </aside>
             </div>
 
             {totalChains > 1 && (

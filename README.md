@@ -6,10 +6,8 @@ A multiplayer code-telephone game built on Next.js + Supabase.
 
 - **Next.js 16** (App Router, TypeScript with `allowJs`, plain CSS Modules) — the whole app, deployed as one Vercel serverless app
 - **Supabase Postgres** — single source of truth for room state. Writes go through Next.js Route Handlers with the service-role key; browsers get RLS-restricted read-only access
-- **Supabase Realtime** (`postgres_changes`) — fan-out for room/player/submission/score updates; no WebSocket server of our own
+- **Supabase Realtime** (`postgres_changes`) — fan-out for room/player/submission updates; no WebSocket server of our own
 - **Signed-cookie auth** — HMAC-SHA256 nickname + room code (`ct_player`), HttpOnly, SameSite=Lax, 24h. No Supabase Auth, no accounts
-- **Google Gemini 2.5 Flash** — AI judge that scores how well each reconstructed function matches the original (called via `fetch`, no SDK)
-- **Judge0** (optional) — sandboxed code execution for behavioural scoring on top of the semantic score. Disabled if `JUDGE0_API_KEY` is unset
 
 ## Prerequisites
 
@@ -20,8 +18,7 @@ A multiplayer code-telephone game built on Next.js + Supabase.
 
 ```bash
 cp .env.example .env.local
-# Fill in SUPABASE_*, NEXT_PUBLIC_SUPABASE_*, SESSION_SECRET, GEMINI_API_KEY
-# Optional: JUDGE0_API_KEY (+ JUDGE0_API_HOST) to enable behavioural scoring
+# Fill in SUPABASE_*, NEXT_PUBLIC_SUPABASE_*, SESSION_SECRET
 
 npm install
 npm run dev
@@ -30,19 +27,35 @@ npm run dev
 
 ## Database
 
-Apply migrations in order in the Supabase SQL editor:
+Apply migrations in numeric order in the Supabase SQL editor. Migrations
+005, 010 (chain_scores_realtime), and 017 set up and then tear down the
+old scoring system — applying them in order is still the correct path
+for a fresh database; the tables are created and dropped along the way.
 
 ```
 sql/001_base_schema.sql              ← rooms, players, prompts
 sql/002_rooms_round_count.sql
-sql/003_scoring_and_elo.sql          ← dormant tables (users/games/ELO) — see Roadmap
+sql/003_scoring_and_elo.sql          ← (dropped by 017)
 sql/004_submissions_and_phases.sql   ← submissions + phase + seat_index
-sql/005_chain_scores.sql             ← chain_scores
+sql/005_chain_scores.sql             ← (dropped by 017)
 sql/006_rls.sql                      ← RLS policies (read-only for clients)
 sql/007_leave_room_proc.sql          ← leave_room RPC with host transfer
 sql/008_realtime_publications.sql    ← supabase_realtime publication
 sql/009_round_rpcs_and_realtime.sql  ← start_game / submit_turn / reset_game RPCs
-sql/010_chain_scores_realtime.sql    ← chain_scores in realtime publication
+sql/010_chain_scores_realtime.sql    ← (superseded by 017)
+sql/010_no_prompt_seeding.sql        ← free-write round 1
+sql/011_kick_player.sql              ← kick_player RPC
+sql/012_players_replica_identity_full.sql
+sql/013_replica_identity_full_remaining.sql
+sql/014_widen_language_constraint.sql
+sql/015_phase_started_at.sql         ← server-stamped phase timer
+sql/016_prompts_enabled_toggle.sql   ← host setting: prompt seeding on/off
+sql/017_drop_scoring_and_elo.sql     ← removes scoring/ELO subsystem
+sql/018_terminate_room.sql           ← terminate_room RPC
+sql/019_narrow_languages_to_3.sql
+sql/020_phase_duration.sql           ← host setting: phase duration
+sql/021_python_only.sql              ← DB CHECK constraint: python or NULL
+sql/022_force_advance.sql            ← force_advance_timer + flush_phase RPCs
 ```
 
 ## Tests
@@ -74,15 +87,10 @@ vercel link
 vercel env add SUPABASE_URL                production
 vercel env add SUPABASE_SERVICE_ROLE_KEY   production
 vercel env add SESSION_SECRET              production
-vercel env add GEMINI_API_KEY              production
 
 # Required (browser-baked):
 vercel env add NEXT_PUBLIC_SUPABASE_URL       production
 vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY  production
-
-# Optional (Judge0 behavioural scoring — leave unset to skip):
-vercel env add JUDGE0_API_KEY   production
-vercel env add JUDGE0_API_HOST  production   # default: judge0-ce.p.rapidapi.com
 
 # 4. Deploy.
 vercel --prod
@@ -100,22 +108,22 @@ After `vercel --prod` succeeds, the CLI prints a `*.vercel.app` URL. Open it in 
 
 ## Implementation history
 
-The current codebase is the result of five plans, all on `main`:
+The current codebase is the result of these plans, all on `main`:
 
-1. **Foundation** — repo hoist (Next.js to root), TS config, archive the FastAPI backend, migrations 001–006, both Supabase clients
+1. **Foundation** — repo hoist (Next.js to root), TS config, migrations 001–006, both Supabase clients
 2. **Lobby** — signed-cookie identity, `/api/rooms` create/join/leave, Realtime hook, waiting-room screen
 3. **Round mechanic** — PL/pgSQL RPCs (`start_game`, `submit_turn`, `reset_game`), seat math, editor / describe / reimplement / reveal screens
-4. **AI judging** — Gemini integration, `POST /api/judge/[roomId]` via `after()`, streaming `chain_scores` on the reveal page
-5. **Judge0 + deploy** — behavioural scoring, Playwright e2e smoke test, Vercel deploy docs
 
-For higher-level architecture and the original design rationale, see `docs/project-briefing.md`, `docs/ui-design.md`, and `docs/API.md`.
+A subsequent AI-judging + Judge0 layer was built and later removed; the
+migrations that introduced it (005, 010) and the migration that tore it
+down (017) are kept in the migration history.
+
+For higher-level architecture, see `docs/project-briefing.md` and `docs/ui-design.md`.
 
 ## Roadmap / known gaps
 
 Real features still to build (or finish) — none of these block the current demo, but they're the obvious next moves:
 
-- **ELO** — `elo_history` table from migration 003 is dormant; the reveal screen shows an ELO panel with placeholder `—` rows
-- **Per-phase timers** — `rooms.phase_ends_at` is reserved in the schema but never advanced; rounds are currently host-paced
-- **Draft autosave** — lost when the old WebSocket layer was removed; editor needs a periodic save back to Supabase
-- **Language picker** — UI is wired but cosmetic; all submissions hard-coded to Python for the demo
-- **Waiting-room settings** — round timing / bots / spectators toggles are non-functional placeholders
+- **Draft autosave** — editor needs a periodic save back to Supabase so refresh doesn't lose in-progress text
+- **Language picker** — UI is wired but `sql/021_python_only.sql` constrains the DB to Python; either re-widen or remove the picker
+- **Waiting-room settings UI** — `PATCH /api/rooms/[code]/settings` accepts `promptsEnabled` and `phaseDurationSeconds`, but the lobby toggles aren't wired to it yet

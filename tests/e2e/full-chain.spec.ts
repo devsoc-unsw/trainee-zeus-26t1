@@ -9,7 +9,7 @@ import { test, expect, type Browser, type Page } from '@playwright/test';
  * If this test fails locally, check:
  *   - dev server actually running at PLAYWRIGHT_BASE_URL (defaults to localhost:3000)
  *   - SUPABASE_SERVICE_ROLE_KEY set in .env (route handlers throw without it)
- *   - All 4 tables in supabase_realtime publication (migrations 008 + 009 + 010)
+ *   - rooms, players, submissions in supabase_realtime publication (migrations 008 + 009)
  */
 
 async function joinWizard(page: Page, nickname: string, opts: { create: true } | { join: string }) {
@@ -48,7 +48,7 @@ async function newPlayerContext(browser: Browser): Promise<Page> {
   return ctx.newPage();
 }
 
-test('3-player chain reaches /reveal with judging', async ({ browser }) => {
+test('3-player chain reaches /reveal', async ({ browser }) => {
   const alice = await newPlayerContext(browser);
   const bob = await newPlayerContext(browser);
   const carol = await newPlayerContext(browser);
@@ -107,23 +107,8 @@ test('3-player chain reaches /reveal with judging', async ({ browser }) => {
     carol.waitForURL(`**/reveal/${code}`, { timeout: 30_000 }),
   ]);
 
-  // 8. Reveal shows the chain. Each tab should see "Scoring this chain…"
-  //    that eventually transitions to a number (or "Scoring unavailable"
-  //    if GEMINI is rate-limited — we accept either).
+  // 8. Reveal shows the chain.
   await expect(alice.getByText(/chain 1/i)).toBeVisible({ timeout: 15_000 });
-
-  // Wait for the score panel to leave the "Scoring this chain…" state.
-  // 45s budget — Gemini sometimes takes a while.
-  await alice.waitForFunction(
-    () => {
-      const text = document.body.innerText;
-      return !text.includes('Scoring this chain…');
-    },
-    {},
-    { timeout: 45_000 },
-  );
-
-  // Final assertion: the page shows either a numeric score OR "Scoring unavailable".
-  const body = await alice.locator('body').innerText();
-  expect(body).toMatch(/(\/100|Scoring unavailable)/);
+  await expect(alice.getByText(/ORIGINAL/i)).toBeVisible();
+  await expect(alice.getByText(/RECONSTRUCTED/i)).toBeVisible();
 });

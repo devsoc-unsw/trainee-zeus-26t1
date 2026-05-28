@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { roomChannel, playersChannel, submissionsChannel, chainScoresChannel } from '../channels';
+import { roomChannel, playersChannel, submissionsChannel } from '../channels';
 
 describe('channel name helpers', () => {
   it('roomChannel encodes the room id', () => {
@@ -10,8 +10,5 @@ describe('channel name helpers', () => {
   });
   it('submissionsChannel encodes the room id', () => {
     expect(submissionsChannel('abc-123')).toBe('submissions:abc-123');
-  });
-  it('chainScoresChannel encodes the room id', () => {
-    expect(chainScoresChannel('abc-123')).toBe('chain_scores:abc-123');
   });
 });
