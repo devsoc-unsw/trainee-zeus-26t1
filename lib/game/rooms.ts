@@ -1,6 +1,30 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { GameError } from './errors';
+import { GameError, type ErrorCode } from './errors';
 import { generateRoomCode } from './codes';
+
+// PL/pgSQL RPCs raise with `'CODE: message'` strings. Extract the code
+// so route handlers can map to the right HTTP status; fall back to
+// INTERNAL when no known prefix is present.
+const KNOWN_RPC_CODES: ErrorCode[] = [
+  'ROOM_NOT_FOUND',
+  'NAME_TAKEN',
+  'NOT_HOST',
+  'NOT_ENOUGH_PLAYERS',
+  'GAME_IN_PROGRESS',
+  'INVALID_SUBMIT',
+];
+function parseRpcError(err: { message?: string } | null | undefined): GameError {
+  const message = err?.message ?? '';
+  for (const code of KNOWN_RPC_CODES) {
+    const needle = `${code}:`;
+    const idx = message.indexOf(needle);
+    if (idx !== -1) {
+      const tail = message.slice(idx + needle.length).trim().split('\n')[0];
+      return new GameError(code, tail || code);
+    }
+  }
+  return new GameError('INTERNAL', message || 'unknown rpc error');
+}
 
 const MAX_CODE_RETRIES = 5;
 
@@ -115,5 +139,100 @@ export async function leaveRoom(args: {
   return {
     hostTransferredTo: row?.host_transferred_to ?? null,
     roomRemainingCount: row?.room_remaining_count ?? 0,
+  };
+}
+
+/* ── kickPlayer ────────────────────────────────────────────────────── */
+export async function kickPlayer(args: {
+  supabase: SupabaseClient;
+  hostId: string;
+  roomId: string;
+  targetId: string;
+}): Promise<{ roomRemainingCount: number }> {
+  const { supabase, hostId, roomId, targetId } = args;
+  const { data, error } = await supabase.rpc('kick_player', {
+    p_host_id: hostId,
+    p_room_id: roomId,
+    p_target_id: targetId,
+  });
+  if (error) throw parseRpcError(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  return { roomRemainingCount: row?.room_remaining_count ?? 0 };
+}
+
+/* ── terminateRoom ─────────────────────────────────────────────────── */
+export async function terminateRoom(args: {
+  supabase: SupabaseClient;
+  hostId: string;
+  roomId: string;
+}): Promise<{ terminated: boolean }> {
+  const { supabase, hostId, roomId } = args;
+  const { data, error } = await supabase.rpc('terminate_room', {
+    p_host_id: hostId,
+    p_room_id: roomId,
+  });
+  if (error) throw parseRpcError(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  return { terminated: Boolean(row?.terminated) };
+}
+
+/* ── forceAdvanceTimer ─────────────────────────────────────────────── */
+export async function forceAdvanceTimer(args: {
+  supabase: SupabaseClient;
+  hostId: string;
+  roomId: string;
+}): Promise<{ currentRound: number }> {
+  const { supabase, hostId, roomId } = args;
+  const { data, error } = await supabase.rpc('force_advance_timer', {
+    p_host_id: hostId,
+    p_room_id: roomId,
+  });
+  if (error) throw parseRpcError(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  return { currentRound: row?.current_round ?? 0 };
+}
+
+/* ── flushPhase ────────────────────────────────────────────────────── */
+export async function flushPhase(args: {
+  supabase: SupabaseClient;
+  hostId: string;
+  roomId: string;
+  expectedRound: number;
+}): Promise<{ newPhase: string; newRound: number; advanced: boolean }> {
+  const { supabase, hostId, roomId, expectedRound } = args;
+  const { data, error } = await supabase.rpc('flush_phase', {
+    p_host_id: hostId,
+    p_room_id: roomId,
+    p_expected_round: expectedRound,
+  });
+  if (error) throw parseRpcError(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    newPhase: row?.new_phase ?? '',
+    newRound: row?.new_round ?? 0,
+    advanced: Boolean(row?.advanced),
+  };
+}
+
+/* ── updateRoomSettings ────────────────────────────────────────────── */
+export async function updateRoomSettings(args: {
+  supabase: SupabaseClient;
+  hostId: string;
+  roomId: string;
+  promptsEnabled?: boolean;
+  phaseDurationSeconds?: number;
+}): Promise<{ promptsEnabled: boolean; phaseDurationSeconds: number }> {
+  const { supabase, hostId, roomId, promptsEnabled, phaseDurationSeconds } = args;
+  const { data, error } = await supabase.rpc('update_room_settings', {
+    p_host_id: hostId,
+    p_room_id: roomId,
+    p_prompts_enabled: promptsEnabled ?? null,
+    p_phase_duration_seconds: phaseDurationSeconds ?? null,
+  });
+  if (error) throw parseRpcError(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    promptsEnabled: Boolean(row?.prompts_enabled),
+    phaseDurationSeconds: row?.phase_duration_seconds ?? 0,
   };
 }
