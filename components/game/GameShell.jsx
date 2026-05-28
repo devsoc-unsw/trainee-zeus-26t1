@@ -89,6 +89,8 @@ export default function GameShell({
   submitLabel = "Submit →",
   onSubmit,
   onSkip,
+  onForceAdvance,
+  canForceAdvance,
   tip,
   children,
 }) {
@@ -123,6 +125,15 @@ export default function GameShell({
             {onSkip && (
               <Button variant="ghost" onClick={onSkip}>
                 Skip turn
+              </Button>
+            )}
+            {canForceAdvance && onForceAdvance && (
+              <Button
+                variant="ghost"
+                onClick={onForceAdvance}
+                title="Host only · advance everyone past this phase"
+              >
+                Skip phase (host)
               </Button>
             )}
             <Button variant="primary" onClick={onSubmit} disabled={submitDisabled}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
@@ -11,6 +11,7 @@ import PlayerAvatar from "@/components/game/PlayerAvatar";
 import Pill from "@/components/game/Pill";
 import { CTLogoMark } from "@/components/brand/CTLogo";
 import { useRoom } from "@/lib/realtime/useRoom";
+import { usePhaseTimer } from "@/lib/game/usePhaseTimer";
 import { chainForPlayer } from "@/lib/game/seating";
 import styles from "./page.module.css";
 
@@ -124,6 +125,34 @@ export default function ReimplementPage() {
     }
   };
 
+  const secondsLeft = usePhaseTimer(
+    room?.phase_started_at,
+    room?.phase_duration_seconds,
+  );
+  const autoSubmittedRef = useRef(false);
+  useEffect(() => {
+    if (autoSubmittedRef.current) return;
+    if (secondsLeft !== 0) return;
+    if (hasSubmitted) return;
+    if (!me?.playerId) return;
+    autoSubmittedRef.current = true;
+    handleSubmit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secondsLeft, hasSubmitted, me?.playerId]);
+
+  const handleForceAdvance = async () => {
+    if (!code) return;
+    try {
+      const res = await fetch(`/api/rooms/${code}/force-advance`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Skip phase failed: ${err.error?.message ?? res.status}`);
+      }
+    } catch (err) {
+      console.error("[reimplement] force-advance failed:", err);
+    }
+  };
+
   const shellPlayers = players.map((p) => {
     const submittedThis = submissions.some((s) => s.round_num === round && s.author_id === p.id);
     const isYou = me?.playerId === p.id;
@@ -151,14 +180,16 @@ export default function ReimplementPage() {
       <GameShell
         phaseIdx={2}
         players={shellPlayers}
-        seconds={null}
+        seconds={secondsLeft}
         readyCount={submittedCount}
         totalPlayers={playerCount}
         screenLabel="reimplement from the description"
         submitDisabled={reconstructedCode.trim().length < 4 || hasSubmitted}
         submitLabel={hasSubmitted ? "Waiting…" : "Submit code →"}
         onSubmit={handleSubmit}
-        tip="Write idiomatic code — the judge focuses on intent, not syntax."
+        canForceAdvance={!!me?.isHost}
+        onForceAdvance={handleForceAdvance}
+        tip="Write idiomatic code — clarity is what carries through the chain."
       >
         {error && <div role="alert">Realtime error: {error}</div>}
         <div className={styles.split}>

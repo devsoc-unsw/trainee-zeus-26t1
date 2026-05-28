@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
@@ -8,6 +8,7 @@ import LanguagePicker from "@/components/game/LanguagePicker";
 import GameShell from "@/components/game/GameShell";
 import { CTLogoMark } from "@/components/brand/CTLogo";
 import { useRoom } from "@/lib/realtime/useRoom";
+import { usePhaseTimer } from "@/lib/game/usePhaseTimer";
 import { chainForPlayer } from "@/lib/game/seating";
 import styles from "./page.module.css";
 
@@ -122,6 +123,39 @@ export default function EditorPage() {
     }
   };
 
+  // Phase timer + auto-submit on timeout. usePhaseTimer ticks every second
+  // off rooms.phase_started_at; when it hits 0 (either naturally or because
+  // a host called force-advance, which rewinds the stamp), we POST the
+  // current draft. The server's flush_phase backstop will fill in empty
+  // submissions for anyone whose tab is closed.
+  const secondsLeft = usePhaseTimer(
+    room?.phase_started_at,
+    room?.phase_duration_seconds,
+  );
+  const autoSubmittedRef = useRef(false);
+  useEffect(() => {
+    if (autoSubmittedRef.current) return;
+    if (secondsLeft !== 0) return;
+    if (hasSubmitted) return;
+    if (!me?.playerId) return;
+    autoSubmittedRef.current = true;
+    handleSubmit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secondsLeft, hasSubmitted, me?.playerId]);
+
+  const handleForceAdvance = async () => {
+    if (!code) return;
+    try {
+      const res = await fetch(`/api/rooms/${code}/force-advance`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Skip phase failed: ${err.error?.message ?? res.status}`);
+      }
+    } catch (err) {
+      console.error("[editor] force-advance failed:", err);
+    }
+  };
+
   // Map nextjs_merge's PlayerRow array onto the {name, you, status, statusText}
   // shape that GameShell's PlayerRail expects.
   const shellPlayers = players.map((p) => {
@@ -158,14 +192,16 @@ export default function EditorPage() {
       <GameShell
         phaseIdx={0}
         players={shellPlayers}
-        seconds={null}
+        seconds={secondsLeft}
         readyCount={submittedCount}
         totalPlayers={playerCount}
         screenLabel="write code that matches the prompt"
         submitDisabled={!meaningful || hasSubmitted}
         submitLabel={hasSubmitted ? "Waiting…" : "Submit →"}
         onSubmit={handleSubmit}
-        tip="Clean naming carries meaning further than clever tricks. The AI judge weighs intent, not syntax."
+        canForceAdvance={!!me?.isHost}
+        onForceAdvance={handleForceAdvance}
+        tip="Clean naming carries meaning further than clever tricks."
       >
         {error && <div role="alert">Realtime error: {error}</div>}
         <div className={styles.write}>

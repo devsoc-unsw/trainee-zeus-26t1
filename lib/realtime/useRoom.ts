@@ -12,6 +12,8 @@ export type RoomRow = {
   phase: 'lobby' | 'writing' | 'describing' | 'reimplementing' | 'reveal' | 'ended';
   current_round: number;
   round_count: number;
+  phase_started_at: string | null;
+  phase_duration_seconds: number;
 };
 export type PlayerRow = {
   id: string;
