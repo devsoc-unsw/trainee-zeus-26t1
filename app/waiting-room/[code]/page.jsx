@@ -87,6 +87,8 @@ export default function WaitingRoom() {
   const [bots, setBots] = useState(true);
   const [spectators, setSpectators] = useState(false);
 
+  const [kickingId, setKickingId] = useState(null);
+
   useEffect(() => {
     if (notFound) router.replace("/");
   }, [notFound, router]);
@@ -98,6 +100,17 @@ export default function WaitingRoom() {
     if (target) router.replace(target);
   }, [room?.phase, code, router]);
 
+  // Got kicked: if useRoom data has loaded and I'm no longer in the
+  // players list, the host removed me. Send home and let /api/me clear
+  // the now-stale cookie on the next visit.
+  useEffect(() => {
+    if (loading) return;
+    if (!me?.playerId) return;
+    if (players.length === 0) return;
+    const stillHere = players.some((p) => p.id === me.playerId);
+    if (!stillHere) router.replace("/");
+  }, [players, me?.playerId, loading, router]);
+
   const handleLeave = async () => {
     try {
       await fetch(`/api/rooms/${code}/leave`, { method: "POST" });
@@ -105,6 +118,30 @@ export default function WaitingRoom() {
       console.error("[lobby] leave failed:", err);
     } finally {
       router.replace("/");
+    }
+  };
+
+  const handleKick = async (targetId, targetName) => {
+    if (!targetId) return;
+    if (typeof window !== "undefined"
+        && !window.confirm(`Kick ${targetName} from the room?`)) return;
+    setKickingId(targetId);
+    try {
+      const res = await fetch(`/api/rooms/${code}/kick`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ playerId: targetId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Kick failed: ${err.error?.message ?? res.status}`);
+      }
+      // Successful removal arrives via Realtime — the player row vanishes
+      // from `players` and the kicked tab navigates itself home.
+    } catch (err) {
+      console.error("[lobby] kick failed:", err);
+    } finally {
+      setKickingId(null);
     }
   };
 
@@ -181,34 +218,50 @@ export default function WaitingRoom() {
           </h3>
           <GlassPanel className={styles.playerList}>
             <ul className={styles.playerUl}>
-              {players.map((p) => (
-                <li
-                  key={p.id}
-                  className={`${styles.playerRow} ${room?.host_id === p.id ? styles.isHost : ""}`}
-                >
-                  <PlayerAvatar name={p.name} size={32} />
-                  <div className={styles.playerMain}>
-                    <div className={styles.playerName}>
-                      {p.name}
-                      {room?.host_id === p.id && <span className={styles.badge}>host</span>}
+              {players.map((p) => {
+                const isHostRow = room?.host_id === p.id;
+                const canKick = me?.isHost && !isHostRow;
+                return (
+                  <li
+                    key={p.id}
+                    className={`${styles.playerRow} ${isHostRow ? styles.isHost : ""}`}
+                  >
+                    <PlayerAvatar name={p.name} size={32} />
+                    <div className={styles.playerMain}>
+                      <div className={styles.playerName}>
+                        {p.name}
+                        {isHostRow && <span className={styles.badge}>host</span>}
+                      </div>
+                      <div className={styles.playerMeta}>Ready to play</div>
                     </div>
-                    <div className={styles.playerMeta}>Ready to play</div>
-                  </div>
-                  <Pill tone="done">
-                    <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true">
-                      <path
-                        d="M1 4.5L3.5 7L8 2"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    Joined
-                  </Pill>
-                </li>
-              ))}
+                    {canKick ? (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleKick(p.id, p.name)}
+                        disabled={kickingId === p.id}
+                        title={`Kick ${p.name} from the room`}
+                      >
+                        {kickingId === p.id ? "Kicking…" : "Kick"}
+                      </Button>
+                    ) : (
+                      <Pill tone="done">
+                        <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden="true">
+                          <path
+                            d="M1 4.5L3.5 7L8 2"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        Joined
+                      </Pill>
+                    )}
+                  </li>
+                );
+              })}
               {Array.from({ length: emptySlots }).map((_, i) => (
                 <li key={`empty-${i}`} className={`${styles.playerRow} ${styles.empty}`}>
                   <span className={styles.emptyAvatar} aria-hidden="true" />
