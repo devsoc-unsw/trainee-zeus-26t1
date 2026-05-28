@@ -58,6 +58,7 @@ sql/021_python_only.sql              ← DB CHECK constraint: python or NULL
 sql/022_force_advance.sql            ← force_advance_timer + flush_phase RPCs
 sql/023_kick_mid_game.sql            ← players.is_active + kick_player in-game soft-delete
 sql/024_auto_end_on_solo.sql         ← auto-transition to reveal when active count ≤1 mid-game
+sql/025_fix_update_room_settings_ambiguity.sql  ← unblocks lobby timing radio (qualified column refs)
 ```
 
 ## Tests
