@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
-import LanguagePicker from "@/components/game/LanguagePicker";
 import GameShell from "@/components/game/GameShell";
 import { CTLogoMark } from "@/components/brand/CTLogo";
 import { useRoom } from "@/lib/realtime/useRoom";
@@ -98,13 +97,9 @@ export default function EditorPage() {
     : false;
   const submittedCount = submissions.filter((s) => s.round_num === round).length;
 
-  // 12-language picker — on submit, clamp to DB-safe set (python/javascript/java).
-  // The DB constraint only allows those three; other languages are visual-only until
-  // Andy widens the schema (see flagged conflict in handover).
-  const DB_SAFE_LANGS = ["python", "javascript", "java"];
-  const clampLang = (l) => DB_SAFE_LANGS.includes(l) ? l : "python";
-
-  const [language, setLanguage] = useState("python");
+  // Python-only for now (DB constraint sql/021). If the language picker
+  // comes back, restore state + clamping here and in the submit body.
+  const language = "python";
   const [editorValue, setEditorValue] = useState(FALLBACK_STARTER);
 
   // Draft autosave (localStorage). Restores in-progress text after a tab
@@ -117,7 +112,6 @@ export default function EditorPage() {
     draftLoadedRef.current = true;
     const draft = loadDraft({ code, round, phase: "writing" });
     if (draft?.content) setEditorValue(draft.content);
-    if (draft?.language) setLanguage(draft.language);
   }, [room?.id, code, round]);
   useEffect(() => {
     if (!draftLoadedRef.current) return;
@@ -139,7 +133,7 @@ export default function EditorPage() {
       const res = await fetch(`/api/rooms/${code}/submit`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ content: editorValue, language: clampLang(language) }),
+        body: JSON.stringify({ content: editorValue, language }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -180,6 +174,24 @@ export default function EditorPage() {
       }
     } catch (err) {
       console.error("[editor] force-advance failed:", err);
+    }
+  };
+
+  const handleEndRoom = async () => {
+    if (!me?.isHost || !code) return;
+    if (typeof window !== "undefined"
+        && !window.confirm("End this room for everyone? All players will be sent home.")) return;
+    try {
+      const res = await fetch(`/api/rooms/${code}/terminate`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`End room failed: ${err.error?.message ?? res.status}`);
+        return;
+      }
+    } catch (err) {
+      console.error("[editor] terminate failed:", err);
+    } finally {
+      router.replace("/");
     }
   };
 
@@ -257,6 +269,8 @@ export default function EditorPage() {
         onSubmit={handleSubmit}
         canForceAdvance={!!me?.isHost}
         onForceAdvance={handleForceAdvance}
+        canEndRoom={!!me?.isHost}
+        onEndRoom={handleEndRoom}
         tip="Clean naming carries meaning further than clever tricks."
       >
         {error && <div role="alert">Realtime error: {error}</div>}
@@ -274,13 +288,6 @@ export default function EditorPage() {
                 <span className={styles.seedTip}>✦ Variable names matter</span>
                 <span className={styles.seedTip}>✦ No external libraries</span>
               </div>
-            </div>
-            <div className={styles.seedRight}>
-              <LanguagePicker
-                value={language}
-                onChange={setLanguage}
-                name="editor-language"
-              />
             </div>
           </div>
           <div className={styles.editorWrap}>

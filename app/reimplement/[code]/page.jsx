@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Window from "@/components/window/Window";
 import CodeEditor from "@/components/game/CodeEditor";
-import LanguagePicker from "@/components/game/LanguagePicker";
 import Notepad from "@/components/notepad/Notepad";
 import GameShell from "@/components/game/GameShell";
 import PlayerAvatar from "@/components/game/PlayerAvatar";
@@ -102,11 +101,8 @@ export default function ReimplementPage() {
     : false;
   const submittedCount = submissions.filter((s) => s.round_num === round).length;
 
-  // 12-language picker — clamp to DB-safe set on submit (python/javascript/java).
-  const DB_SAFE_LANGS = ["python", "javascript", "java"];
-  const clampLang = (l) => DB_SAFE_LANGS.includes(l) ? l : "python";
-
-  const [language, setLanguage] = useState("python");
+  // Python-only for now (DB constraint sql/021).
+  const language = "python";
   const [reconstructedCode, setReconstructedCode] = useState("");
 
   // Draft autosave (localStorage) — see editor page for rationale.
@@ -117,7 +113,6 @@ export default function ReimplementPage() {
     draftLoadedRef.current = true;
     const draft = loadDraft({ code, round, phase: "reimplementing" });
     if (draft?.content) setReconstructedCode(draft.content);
-    if (draft?.language) setLanguage(draft.language);
   }, [room?.id, code, round]);
   useEffect(() => {
     if (!draftLoadedRef.current) return;
@@ -142,7 +137,7 @@ export default function ReimplementPage() {
       const res = await fetch(`/api/rooms/${code}/submit`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ content: reconstructedCode, language: clampLang(language) }),
+        body: JSON.stringify({ content: reconstructedCode, language }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -178,6 +173,24 @@ export default function ReimplementPage() {
       }
     } catch (err) {
       console.error("[reimplement] force-advance failed:", err);
+    }
+  };
+
+  const handleEndRoom = async () => {
+    if (!me?.isHost || !code) return;
+    if (typeof window !== "undefined"
+        && !window.confirm("End this room for everyone? All players will be sent home.")) return;
+    try {
+      const res = await fetch(`/api/rooms/${code}/terminate`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`End room failed: ${err.error?.message ?? res.status}`);
+        return;
+      }
+    } catch (err) {
+      console.error("[reimplement] terminate failed:", err);
+    } finally {
+      router.replace("/");
     }
   };
 
@@ -246,6 +259,8 @@ export default function ReimplementPage() {
         onSubmit={handleSubmit}
         canForceAdvance={!!me?.isHost}
         onForceAdvance={handleForceAdvance}
+        canEndRoom={!!me?.isHost}
+        onEndRoom={handleEndRoom}
         tip="Write idiomatic code — clarity is what carries through the chain."
       >
         {error && <div role="alert">Realtime error: {error}</div>}
@@ -270,14 +285,6 @@ export default function ReimplementPage() {
               <PlayerAvatar name={me ? "you" : ""} size={20} />
               <span className={styles.name}>Your reconstruction</span>
               <Pill tone="accent">your turn</Pill>
-              <span className={styles.headLang}>
-                <LanguagePicker
-                  value={language}
-                  onChange={setLanguage}
-                  name="reimplement-language"
-                  label={null}
-                />
-              </span>
             </header>
             <div className={styles.paneBody}>
               <CodeEditor

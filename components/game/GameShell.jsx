@@ -107,6 +107,8 @@ export default function GameShell({
   onSkip,
   onForceAdvance,
   canForceAdvance,
+  onEndRoom,
+  canEndRoom,
   tip,
   children,
 }) {
@@ -150,6 +152,15 @@ export default function GameShell({
                 title="Host only · advance everyone past this phase"
               >
                 Skip phase (host)
+              </Button>
+            )}
+            {canEndRoom && onEndRoom && (
+              <Button
+                variant="ghost"
+                onClick={onEndRoom}
+                title="Host only · end the game and close the room"
+              >
+                End room (host)
               </Button>
             )}
             <Button variant="primary" onClick={onSubmit} disabled={submitDisabled}>

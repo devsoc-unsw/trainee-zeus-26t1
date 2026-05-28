@@ -172,6 +172,24 @@ export default function DescribePage() {
     }
   };
 
+  const handleEndRoom = async () => {
+    if (!me?.isHost || !code) return;
+    if (typeof window !== "undefined"
+        && !window.confirm("End this room for everyone? All players will be sent home.")) return;
+    try {
+      const res = await fetch(`/api/rooms/${code}/terminate`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`End room failed: ${err.error?.message ?? res.status}`);
+        return;
+      }
+    } catch (err) {
+      console.error("[describe] terminate failed:", err);
+    } finally {
+      router.replace("/");
+    }
+  };
+
   const handleKick = async (targetId, targetName) => {
     if (typeof window !== "undefined"
         && !window.confirm(`Kick ${targetName} from the game? Their remaining submissions will be filled in as empty.`)) return;
@@ -237,6 +255,8 @@ export default function DescribePage() {
         onSubmit={handleSubmit}
         canForceAdvance={!!me?.isHost}
         onForceAdvance={handleForceAdvance}
+        canEndRoom={!!me?.isHost}
+        onEndRoom={handleEndRoom}
         tip="Describe behaviour, not syntax. Mention edge cases — they survive the chain."
       >
         {error && <div role="alert">Realtime error: {error}</div>}

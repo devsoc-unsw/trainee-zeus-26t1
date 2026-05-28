@@ -180,6 +180,24 @@ export default function WaitingRoom() {
     }
   };
 
+  const handleTerminate = async () => {
+    if (!me?.isHost || !code) return;
+    if (typeof window !== "undefined"
+        && !window.confirm("End this room for everyone? All players will be sent home.")) return;
+    try {
+      const res = await fetch(`/api/rooms/${code}/terminate`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`End room failed: ${err.error?.message ?? res.status}`);
+        return;
+      }
+    } catch (err) {
+      console.error("[lobby] terminate failed:", err);
+    } finally {
+      router.replace("/");
+    }
+  };
+
   const handleStart = async () => {
     try {
       const res = await fetch(`/api/rooms/${code}/start`, { method: "POST" });
@@ -374,6 +392,11 @@ export default function WaitingRoom() {
             <Button variant="ghost" onClick={handleLeave}>
               Leave room
             </Button>
+            {me?.isHost && (
+              <Button variant="ghost" onClick={handleTerminate}>
+                End room (host)
+              </Button>
+            )}
             <Button variant="primary" disabled={startDisabled} onClick={handleStart}>
               Start game →
             </Button>
