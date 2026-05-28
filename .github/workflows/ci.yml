@@ -1,5 +1,4 @@
-# Continuous integration: Python backend, Next.js frontend, Docker images, compose file.
-# CD (deploy to cloud) is project-specific; extend with a deploy workflow + secrets when ready.
+# Continuous integration: Next.js app at repo root, Docker image, compose file.
 name: CI
 
 on:
@@ -16,33 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
-    name: Backend (pytest)
+  app:
+    name: App (lint + build)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run tests
-        run: pytest tests/ -v --tb=short
-
-  frontend:
-    name: Frontend (lint + build)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -50,7 +25,7 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -65,8 +40,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.ci-placeholder-signature
           NEXT_PUBLIC_API_URL: http://localhost:8000
 
-  docker-backend:
-    name: Docker (backend image)
+  docker:
+    name: Docker (dev image)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -75,32 +50,11 @@ jobs:
 
       - uses: docker/build-push-action@v6
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
+          context: .
+          file: ./Dockerfile
+          target: dev
           push: false
-          tags: trainee-zeus-backend:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  docker-frontend:
-    name: Docker (frontend builder stage)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/build-push-action@v6
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          target: builder
-          push: false
-          tags: trainee-zeus-frontend:ci
-          build-args: |
-            NEXT_PUBLIC_SUPABASE_URL=https://ci-placeholder.supabase.co
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiJ9.ci-placeholder-signature
-            NEXT_PUBLIC_API_URL=http://localhost:8000
+          tags: trainee-zeus:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
