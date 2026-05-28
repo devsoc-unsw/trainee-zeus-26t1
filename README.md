@@ -111,22 +111,23 @@ After `vercel --prod` succeeds, the CLI prints a `*.vercel.app` URL. Open it in 
 
 ## Implementation history
 
-The current codebase is the result of these plans, all on `main`:
+The current codebase is the result of these plans / sweeps, all on `main`:
 
 1. **Foundation** — repo hoist (Next.js to root), TS config, migrations 001–006, both Supabase clients
 2. **Lobby** — signed-cookie identity, `/api/rooms` create/join/leave, Realtime hook, waiting-room screen
 3. **Round mechanic** — PL/pgSQL RPCs (`start_game`, `submit_turn`, `reset_game`), seat math, editor / describe / reimplement / reveal screens
+4. **Host controls & polish (2026-05-28)** — drop the AI-judge subsystem; collapse the FastAPI archive; phase timer + auto-submit; force-advance, kick, terminate, settings PATCH; lobby round-timing wired; draft autosave; Window resizable + viewport-clamped; mid-game kick (soft-delete + auto-end on solo); home-page rejoin via `/api/me`. See `docs/superpowers/handoffs/2026-05-28-cleanup-and-host-controls-handoff.md`.
 
-A subsequent AI-judging + Judge0 layer was built and later removed; the
-migrations that introduced it (005, 010) and the migration that tore it
-down (017) are kept in the migration history.
+A subsequent AI-judging + Judge0 layer was built between plans 3 and 4 and then removed (see migrations 005 / 010 / 017). The remaining `chain_scores` history is kept in `sql/` for archival reasons.
 
-For higher-level architecture, see `docs/project-briefing.md` and `docs/ui-design.md`.
+For higher-level architecture, see `docs/project-briefing.md` and `docs/build-status.md`.
 
 ## Roadmap / known gaps
 
 Real features still to build (or finish) — none of these block the current demo, but they're the obvious next moves:
 
-- **Draft autosave** — editor needs a periodic save back to Supabase so refresh doesn't lose in-progress text
-- **Language picker** — UI is wired but `sql/021_python_only.sql` constrains the DB to Python; either re-widen or remove the picker
-- **Waiting-room settings UI** — `PATCH /api/rooms/[code]/settings` accepts `promptsEnabled` and `phaseDurationSeconds`, but the lobby toggles aren't wired to it yet
+- **Server-side draft persistence** — drafts currently survive refresh via `lib/storage/drafts.js` (localStorage), but not cross-device. Adding a `drafts` table + endpoint would let a player continue on their phone.
+- **Bots / spectators** — the waiting-room checkboxes are still local-only; no backend exists.
+- **Mid-game leave** — `leave_room` (migration 007) hard-deletes the player; mirroring `kick_player`'s in-game soft-delete (migration 023) would prevent the chain math going wonky on a 4→3 mid-game leave. The auto-end-on-solo trigger (migration 024) dodges the worst case (everyone leaves down to 1) but the 4→3 case still has the issue.
+- **Stray MenuBar / Superbar components** — `components/desktop/*` is no longer imported anywhere; safe to delete in a cleanup pass.
+- **Reveal polish** — chain visualization is functional but could use animations, copy buttons on segments, etc.

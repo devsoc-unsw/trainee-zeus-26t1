@@ -2,7 +2,7 @@
 
 ## Overview
 
-Code Telephone is a multiplayer browser game in the spirit of Gartic Phone, but built around code instead of drawing. A function passes through a chain of players, alternating between code and English, and the gap between the original and the reconstruction gets scored at the end.
+Code Telephone is a multiplayer browser game in the spirit of Gartic Phone, but built around code instead of drawing. A function passes through a chain of players, alternating between code and English, and the gap between the original and the reconstruction is laid bare at the end.
 
 ## The game loop
 
@@ -11,7 +11,7 @@ A round runs in four phases:
 1. **Write** — Player A is given a written prompt and writes a function that satisfies it.
 2. **Describe** — Player B receives only the function (the prompt is hidden) and must summarise in plain English what they think it does.
 3. **Reimplement** — Player C receives only Player B's description and writes a new function based on it.
-4. **Reveal** — The full chain is laid out next to itself. An AI judge scores how semantically close the reconstructed function is to the original.
+4. **Reveal** — The full chain is laid out side-by-side, segment by segment. Players read down the chain to see exactly where meaning was preserved or lost between the original prompt, the code, the description, and the reconstruction.
 
 The fun lives in how the meaning warps between code and prose. A clean function with a misleading variable name will produce a wildly wrong reconstruction; a strong description can survive a sloppy intermediate.
 
@@ -19,12 +19,13 @@ The fun lives in how the meaning warps between code and prose. A clean function 
 
 The shipping v1 covers the chain and the reveal. Beyond that:
 
-- **AI judge scoring** that measures semantic similarity rather than text similarity, so two functions that compute the same thing in different styles score highly.
-- **Live code execution** through the Judge0 API, so the AI judge can also run both functions against test inputs and use behavioural equivalence as a signal.
-- **Spectator mode** where non-players can watch a round live and place bets on how close the final reconstruction will land.
-- **ELO** per player so the scoring has stakes across sessions.
-- **Cross-language judging**, so player A can write Python, player C can write JavaScript, and the judge normalises across them.
-- **Replay**, so after the reveal the whole chain can be stepped through to see exactly where meaning was lost.
+- **AI-judge semantic scoring** (previously built and then removed — see `sql/017_drop_scoring_and_elo.sql` for the deprecation reason). A future version could reintroduce a Gemini- or Claude-backed semantic similarity score so the reveal screen surfaces a number, not just a side-by-side diff.
+- **Live code execution** through the Judge0 API, so a scoring layer could also run both functions against test inputs and use behavioural equivalence as a signal.
+- **Spectator mode** where non-players can watch a round live.
+- **ELO** per player so the chain has stakes across sessions (`sql/003_scoring_and_elo.sql` set up the tables; `sql/017` dropped them).
+- **Cross-language chains**, currently constrained to Python by `sql/021_python_only.sql`.
+- **Replay**, so after the reveal the whole chain can be stepped through animation-style.
+- **Server-side draft persistence** so an in-progress submission survives moving to a different device. The current draft autosave is `localStorage` only (see `lib/storage/drafts.js`).
 
 ## Tech stack
 
@@ -65,6 +66,10 @@ DevSoc's house stack is Next.js + TypeScript; this project sticks with that, hoi
 
 ## Current phase
 
-The static UI, lobby, and round mechanic are shipped. Each route renders against live Supabase state via the `useRoom` Realtime hook, and `start_game` / `submit_turn` / `reset_game` RPCs drive phase transitions server-side.
+The full round mechanic is shipped: a host can create a room, share the code, start the game when there are ≥2 players, and the room walks through write → describe → reimplement → reveal driven by `start_game` / `submit_turn` / `reset_game` PL/pgSQL RPCs. Each client subscribes via the `useRoom` Realtime hook and navigates automatically when `rooms.phase` changes.
+
+Host controls (kick, terminate, force-advance, settings) and the per-phase server-stamped timer are also live (see the `/api/rooms/[code]/{kick,terminate,force-advance,settings}` route handlers and migrations 015 / 020 / 022 / 023). Draft autosave preserves in-progress text across refreshes via `localStorage` (`lib/storage/drafts.js`).
 
 Design assets are limited to the Aero UI source SVGs at [`./aero-reference/`](./aero-reference/). All CSS is built from those.
+
+For a snapshot of the actual surface (routes, components, lib modules, migrations), see [`build-status.md`](./build-status.md).

@@ -1,10 +1,26 @@
-# Code Telephone — Static UI Design
+# Code Telephone — UI Design
 
-This document is the source of truth for the visual design and component library. It covers design tokens, component specs (driven by the Aero UI (Windows 7) Community reference PDF), screen layouts, and the suggested frontend file structure.
-
-**Scope of current phase:** static UI only. Every screen renders with placeholder/mocked data; no game logic, no realtime, no API calls.
+This document is the source of truth for the visual design system: tokens, component specs, screen layouts. It is **partially aspirational** — some component specs in §3 describe pieces that were planned but never built. The token table in §2 is current. The file inventory of what actually shipped lives in [`build-status.md`](./build-status.md).
 
 **Source of truth for visuals:** vector SVGs extracted from the Aero UI Figma kit, stored at [`./aero-reference/`](./aero-reference/). All colour tokens and gradient stops below are extracted directly from those SVG `<linearGradient>` / `<radialGradient>` definitions, not eyeballed from screenshots. When a value is marked _(eyeballed)_ it's a render-based approximation because the source SVG doesn't isolate that element.
+
+**What's shipped vs. spec'd-only** (see §3 for the full spec):
+
+| Component | Status |
+|---|---|
+| `GlassPanel` | ✅ shipped |
+| `Window` (+ traffic-light controls) | ✅ shipped — now with corner resize + viewport clamping |
+| `Notepad` (with its own File/Edit menu) | ✅ shipped |
+| `Button`, `Checkbox`, `Radio`, `TextField`, `TextArea` | ✅ shipped |
+| `PlayerAvatar`, `Pill`, `Timer`, `CodeEditor` (in-house IDE) | ✅ shipped |
+| `GameShell` (PlayerRail + topbar + phase content + footer) | ✅ shipped (replaces the old PhaseHUD idea) |
+| `TintedGlassPanel`, `TintedWindow` | ❌ not built — fold into `GlassPanel` / `Window` if needed |
+| `MenuBar` (standalone) | ❌ not built — Notepad has its own; no app-level MenuBar |
+| `Superbar`, `StartOrb`, `Clock`, `TaskbarItem` | ❌ removed — files exist under `components/desktop/` but no longer imported |
+| `Slider`, `NavOrb` | ❌ not built |
+| `StatusDot`, `PhaseTracker` | ❌ not built as components (`GameShell` inlines the status dot SVG) |
+| `CodeEditorPanel`, `DescriptionPanel` | ❌ not built as separate components (composed inline per page) |
+| `ScoreNumber` | ❌ not built — the AI-judge subsystem was removed; see `sql/017_drop_scoring_and_elo.sql` |
 
 ---
 
@@ -14,16 +30,16 @@ This document is the source of truth for the visual design and component library
 
 The Win7 Aero aesthetic is executed with full commitment and high polish. Goals:
 
-- Feels like a genuinely well-crafted Win7 desktop running in a browser
-- **Every screen is a "window"** with proper chrome (title bar, controls) and the Superbar always present at the bottom
-- Never feels "web-like" — no full-page scroll, no mobile-first, no toast notifications. Use dialog boxes, status bar messages, and modal windows instead
-- Every transition mimics Win7 window open/close — scale from center + slight fade
+- Feels like a genuinely well-crafted Win7 desktop running in a browser, with a macOS-tinted twist (left-aligned traffic-light controls instead of right-aligned Win7 controls)
+- **Every screen is a "window"** rendered against the Bliss wallpaper
+- Never feels "web-like" — no full-page scroll, no mobile-first patterns. Use dialog boxes and inline status messages instead
+- Every window open/close transition mimics Win7 — scale from center + slight fade
 
 ---
 
 ## 2. Design Tokens
 
-These should live as CSS custom properties in `frontend/src/app/globals.css` (or a dedicated `tokens.css` imported globally).
+These live as CSS custom properties in `app/globals.css` (light + dark theme variants, switched via `[data-theme]` on `<html>`).
 
 ### 2.1 Colours
 
@@ -389,7 +405,7 @@ Use a 4px base scale: `4 / 8 / 12 / 16 / 24 / 32 / 48`. No spacing tokens needed
 
 ## 3. Component Library
 
-Each component below maps to a page in the Aero UI PDF (referenced inline). Build them as React components under `frontend/src/components/`.
+Each component below maps to a page in the Aero UI PDF (referenced inline). React components live under `components/` at the repo root, grouped by domain (`window/`, `glass/`, `input/`, `game/`, etc.). See the table at the top of this document for which specs are shipped vs aspirational.
 
 ### 3.1 Aero Glass Panel `<GlassPanel>`
 
@@ -695,111 +711,104 @@ Not in the Aero PDF — bespoke to Code Telephone but use the same visual langua
 
 ## 4. Screen Layouts
 
-The Superbar is always present at the bottom. Every screen renders one or more `<Window>` components against the desktop background.
+Every screen renders a single `<Window>` against the Bliss wallpaper. There is no longer a top menubar or bottom Superbar — those were removed because they were chewing ~70px of vertical space and pushing the Submit button below the fold on smaller laptop screens.
 
 ### 4.1 Desktop shell
 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │                                                          │
-│              (blue radial gradient                       │
-│               with subtle top-right glow)                │
+│         (Bliss-style sky + hills wallpaper)              │
 │                                                          │
 │                  ┌──────────────────┐                    │
-│                  │   active window  │                    │
+│                  │  ●●●  Window     │  ← traffic-lights  │
 │                  │                  │                    │
 │                  │                  │                    │
+│                  │                ◢ │  ← resize handle   │
 │                  └──────────────────┘                    │
 │                                                          │
-├──────────────────────────────────────────────────────────┤
-│ [orb] [IE] [Code Telephone]               9:42 PM 14/05  │  ← Superbar
+│                                                          │
 └──────────────────────────────────────────────────────────┘
 ```
 
-Implementation: top-level `app/layout.js` renders the desktop background + `<Superbar />`. Routes render their own `<Window>` centred over the desktop.
+Implementation: `app/layout.jsx` renders `<ThemeProvider>` → `<Bliss>` (wallpaper) → `<div className="window-stack">{children}</div>`. Each route renders its own `<Window>` centred over the wallpaper. Drag from the title bar, resize from the bottom-right corner, double-click title to maximize.
 
 ### 4.2 Lobby / Room screen
 
 ```
-┌─ Code Telephone — ROOM-4829 ───────────── _ □ X ─┐
-│ File   Edit   View   Help                         │
+┌─ ●●●  Room ABCDEF ─────────────────────────────────┐
+│ Pill: Public Room   Code [ABCDEF]🗐   3 of 6 joined│
 ├───────────────────────────────────────────────────┤
-│                                                   │
-│  Room Code:  ROOM-4829                            │
-│                                                   │
-│  Players (3/6)                                    │
-│  ┌───────────────────────────────────────────┐    │
-│  │ [JS] Jordan       ☑ ready    (host)       │    │
-│  │ [AM] Amrita       ☑ ready                 │    │
-│  │ [LK] Lukas        ☐ not ready             │    │
-│  │ [  ] empty slot                            │    │
-│  │ [  ] empty slot                            │    │
-│  │ [  ] empty slot                            │    │
-│  └───────────────────────────────────────────┘    │
-│                                                   │
-│  Language:  ⦿ Python  ◯ JavaScript  ◯ Java         │
-│                                                   │
-│                          [ Leave ]  [ Start Game ]│
+│  Players · 3 of 6              │ Game settings    │
+│  ┌──────────────────────────┐  │  Round timing    │
+│  │ [JS] Jordan      [host]  │  │   ◯ 90s sprint   │
+│  │ [AM] Amrita     [ Kick ] │  │   ⦿ 3min classic │
+│  │ [LK] Lukas      [ Kick ] │  │   ◯ 5min relaxed │
+│  │ [  ] Empty seat          │  │                  │
+│  └──────────────────────────┘  │  ☑ Bots          │
+│                                │  ☐ Spectators    │
+│                                │                  │
+│                                │ [Leave]          │
+│                                │ [End room (host)]│
+│                                │ [Start game →]   │
 └───────────────────────────────────────────────────┘
 ```
 
 **Layout notes:**
-- Window width: `560px`, height: `auto` (max ~520px)
-- Centered both axes
-- "Start Game" is `<Button variant="primary">`, only enabled for host
-- Non-host sees "Waiting for host..." in the same position, no button
+- Window: `720×580px`, centered (clamped to viewport)
+- Player rows on the left; settings panel + actions on the right
+- "Kick" button shows for the host on every non-host row. In lobby, kick is hard-delete; mid-game it's soft-delete (chains preserved)
+- "Round timing" radio is wired to `PATCH /api/rooms/[code]/settings`; bots/spectators are cosmetic placeholders
+- "End room (host)" calls `POST /api/rooms/[code]/terminate` — deletes the room and bounces every player home
+- Non-host sees the player list + the language note but no settings panel and no Start button
 
-### 4.3 Gameplay window (the main screen)
+### 4.3 Gameplay window (the main screen, via `GameShell`)
 
 ```
-┌─ Code Telephone — Round 3 ─────────────────────── _ □ X ─┐
-│ File   Edit   View   Help                                 │
-├───────────────────────────────────────────────────────────┤
-│  Phase 2 of 4 — Describe the function          [ 0:47 ]   │
-├──────────────┬────────────────────────────────────────────┤
-│  PLAYERS     │  ┌──── Function (read-only) ──── Python ─┐ │
-│  ● Jordan ✓  │  │  1  def reverse_string(s):           │ │
-│  ● Amrita ✎  │  │  2      return s[::-1]               │ │
-│  ● Lukas    │  │                                       │ │
-│  ● You    ✎ │  └──────────────────────────────────────┘ │
-│              │                                            │
-│  PHASE       │  ┌──── Your description ── Plain English ┐│
-│  ✓ Write     │  │                                       ││
-│  ✎ Describe  │  │  [textarea]                           ││
-│  3 Re-impl   │  │                                       ││
-│  4 Reveal    │  │                                       ││
-│              │  └──────────────────────────────────────┘ │
-│              │                                            │
-│              │              2/4 ready    [Skip] [Submit] │
-└──────────────┴────────────────────────────────────────────┘
+┌─ ●●●  Code Telephone — Round 3 ─────────────────────────────┐
+├──────────────┬──────────────────────────────────────────────┤
+│              │ Phase 2 of 3 — Describe       [ 0:47 ]       │
+│  Players     ├──────────────────────────────────────────────┤
+│  ● Jordan ✓  │                                              │
+│  ● Amrita ✎ ×│  ┌── content (varies by phase) ──────────┐  │
+│  ● Lukas   ×│  │                                         │  │
+│  ● You   ✎  │  │   read-only code or description, then  │  │
+│              │  │   editable target (code or notepad)    │  │
+│  Round 1     │  │                                         │  │
+│  ✓ Write     │  └─────────────────────────────────────────┘  │
+│  ✎ Describe  │                                              │
+│  3 Re-impl   ├──────────────────────────────────────────────┤
+│              │ 2 of 4 ready  ·  Auto-submits at 0:00        │
+│  Tip: ...    │     [Skip phase (host)] [End room] [Submit→] │
+└──────────────┴──────────────────────────────────────────────┘
 ```
 
 **Layout notes:**
-- Window: full viewport minus 60px (room for superbar + margin)
-- Left sidebar: `220px` fixed width, glass panel
-- Main area: flex column
-  - Top banner: phase label (left) + timer (right), `48px` tall
-  - Content area: changes per phase (see variants below)
-  - Bottom row: `48px` tall, ready count (left) + Skip/Submit (right)
+- Single `<Window>` (resizable, clamped to viewport)
+- Left rail (`240px`): players + round/phase tracker + tip
+  - `×` on non-host non-self rows when the viewer is the host (kicks mid-game via soft-delete + auto-fill)
+- Main column: topbar (phase pill + countdown `Timer`) → content → footer
+- Footer always sticky to bottom of the window — Submit + host actions are visible at any window size
+- Phase timer is driven by `rooms.phase_started_at` + `rooms.phase_duration_seconds`; client-side `usePhaseTimer` ticks at 1Hz; on hitting 0 the page auto-submits whatever's in state
 
-**Phase variants** (the content area between banner and bottom row):
+**Phase variants** (the content area between topbar and footer):
 
-| Phase | Top panel | Bottom panel |
+| Page | Left panel | Right panel |
 |---|---|---|
-| Write | Prompt text (read-only glass panel) | Code editor (editable) |
-| Describe | Code panel (read-only) | Description textarea (editable) |
-| Reimplement | Description panel (read-only) | Code editor (editable) |
-| Waiting | "Waiting for other players..." + Win7 progress bar | (nothing — single full-height panel) |
+| `/editor/[code]` (Write) | Prompt text / seed | Code editor (editable) |
+| `/describe/[code]` | Code panel (read-only) | Notepad (editable description) |
+| `/reimplement/[code]` | Notepad (read-only description) | Code editor (editable) |
 
-### 4.4 Reveal / Scoring screen
+### 4.4 Reveal screen
 
 ```
-┌─ Code Telephone — Round Reveal ──────────────── _ □ X ─┐
+┌─ ●●●  Code Telephone — Reveal — ABCDEF ─────────────────┐
 │                                                         │
 │  The chain                                              │
 │  ┌──────┐  →  ┌──────┐  →  ┌──────┐  →  ┌──────┐        │
-│  │ [JS] │     │ [AM] │     │ [LK] │     │  ✦   │        │
-│  │ Code │     │ Desc │     │ Code │     │Score │        │
+│  │ [JS] │     │ [AM] │     │ [LK] │     │ [JS] │        │
+│  │ Code │     │ Desc │     │ Code │     │ Code │        │
+│  │def…  │     │"sums │     │def…  │     │def…  │        │
 │  └──────┘     └──────┘     └──────┘     └──────┘        │
 │                                                         │
 │  ┌─────────────────────────┬───────────────────────┐    │
@@ -808,105 +817,40 @@ Implementation: top-level `app/layout.js` renders the desktop background + `<Sup
 │  │      return s[::-1]     │      return text[::-1]│    │
 │  └─────────────────────────┴───────────────────────┘    │
 │                                                         │
-│              ┌───────────────────┐                      │
-│              │       87%         │                      │
-│              │  semantic match   │                      │
-│              └───────────────────┘                      │
+│              [ Chain 1 ✓ ] [ Chain 2 ] [ Chain 3 ]      │
 │                                                         │
-│  ELO   Jordan +8    Amrita +12    Lukas -4              │
-│                                                         │
-│                       [ View replay ]  [ Play again ]   │
+│                                  [ Play again → ]       │
 └─────────────────────────────────────────────────────────┘
 ```
 
 **Layout notes:**
-- Window: 900×700px, centered
-- Chain row: 4 nodes connected with arrows (use simple SVG arrows in `--w7-blue-500`)
-- Each chain node is a 140×100px glass panel with avatar + label + preview snippet
-- Diff section: 2-column split, syntax-highlighted code; future enhancement: line-level red/green diff highlighting
-- Score: huge number (`<ScoreNumber>`) in a tinted glass pill
-- ELO row: each player's delta in green/red
+- Window: `1080×680px`, centered (resizable)
+- Chain row: nodes connected with arrows. Each chain node is a glass card with avatar + label + first-line preview
+- Diff section: original (first segment) vs reconstructed (last code segment), shown read-only in the same `CodeEditor` chrome
+- Chain selector buttons let viewers cycle through every chain in the room (one chain per player)
+- **Play again** is host-only — calls `POST /api/rooms/[code]/reset` which transitions back to `phase='lobby'`
+- *No score number or ELO row.* The AI-judge subsystem was tried and removed in a prior sweep (`sql/017_drop_scoring_and_elo.sql`). If scoring is reintroduced, this is where the `ScoreNumber` from §3 would land.
 
 ---
 
-## 5. Suggested Frontend File Structure
+## 5. File structure
+
+For the canonical layout of what's actually on disk (and what was planned but never built), see [`build-status.md`](./build-status.md). The current code lives at the **repo root**, not under `frontend/src/`:
 
 ```
-frontend/src/
-├── app/
-│   ├── layout.js              ← desktop background + <Superbar/>
-│   ├── globals.css            ← token CSS vars + base resets
-│   ├── page.js                ← landing / "boot" screen (optional)
-│   ├── lobby/
-│   │   ├── page.js            ← Lobby window
-│   │   └── lobby.module.css
-│   ├── game/
-│   │   ├── page.js            ← Gameplay window (handles all 4 phases)
-│   │   └── game.module.css
-│   └── reveal/
-│       ├── page.js            ← Reveal window
-│       └── reveal.module.css
-├── components/
-│   ├── desktop/
-│   │   ├── DesktopBackground.jsx
-│   │   ├── Superbar.jsx
-│   │   ├── StartOrb.jsx
-│   │   └── Clock.jsx
-│   ├── window/
-│   │   ├── Window.jsx         ← App Window
-│   │   ├── TintedWindow.jsx
-│   │   ├── WindowControls.jsx
-│   │   └── MenuBar.jsx
-│   ├── glass/
-│   │   ├── GlassPanel.jsx
-│   │   └── TintedGlassPanel.jsx
-│   ├── input/
-│   │   ├── Button.jsx
-│   │   ├── Checkbox.jsx
-│   │   ├── Radio.jsx
-│   │   ├── TextField.jsx
-│   │   ├── TextArea.jsx
-│   │   ├── Slider.jsx
-│   │   └── NavOrb.jsx
-│   ├── game/
-│   │   ├── PlayerAvatar.jsx
-│   │   ├── StatusDot.jsx
-│   │   ├── PhaseTracker.jsx
-│   │   ├── CodeEditorPanel.jsx
-│   │   ├── DescriptionPanel.jsx
-│   │   ├── Timer.jsx
-│   │   └── ScoreNumber.jsx
-│   └── icons/                  ← SVG icons (win flag, arrows, controls)
-└── styles/
-    └── mixins.css              ← reusable @apply-style class pieces (if used)
+app/         ← Next.js App Router pages + API routes
+components/  ← React components grouped by domain (brand, game, glass, input, notepad, theme, wallpaper, window)
+lib/         ← non-React modules (auth, game logic, realtime, storage, supabase clients)
+sql/         ← numbered Postgres migrations
 ```
 
-**Why this layout:**
-- Components grouped by domain (`desktop`, `window`, `glass`, `input`, `game`) so the Aero UI primitives stay separate from game-specific UI
-- Each route under `app/` is a single window — easy to mock with static placeholder data
-- CSS Modules per route keep page-specific layout CSS scoped; design tokens live globally
+Components are grouped by domain, CSS Modules per component, design tokens live globally in `app/globals.css`.
 
 ---
 
-## 6. Build Order (Recommendation)
-
-To make incremental progress visible, build in this order. Each step should produce a screenshot-worthy artifact.
-
-1. **Design tokens + desktop background + Superbar** — opening the app already feels like Windows 7
-2. **`<Window>` + `<GlassPanel>`** — the two structural primitives everything else sits inside
-3. **Input components** — Button, Checkbox, Radio, TextField (enough to build the Lobby)
-4. **Lobby screen** — first real screen with mocked player data
-5. **Gameplay screen — write phase** — code editor panel, timer, phase tracker, player list
-6. **Gameplay screen — other phases** — describe, reimplement, waiting (just toggle which panel renders)
-7. **Reveal screen** — chain visualization, diff view, score number, ELO row
-8. **Polish pass** — window open/close transitions, Superbar clock ticking, status dot animations, sound effects
-
-Each step is testable in isolation in a Next.js dev server with a hard-coded mock for the data the component needs.
-
----
-
-## 7. References
+## 6. References
 
 - **Aero UI vector source** — [`./aero-reference/`](./aero-reference/) (12 SVGs, one per component; gradient stops extracted into §2)
 - **Aero UI (Windows 7) Community** Figma kit — file ID `7gyDf4UNgoreGJKdIo5OmA` (original source for the SVGs above)
 - **Project briefing** — [`./project-briefing.md`](./project-briefing.md)
+- **Build status** — [`./build-status.md`](./build-status.md) (what's actually on disk vs. what's spec'd here)
