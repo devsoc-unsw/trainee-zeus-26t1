@@ -15,6 +15,14 @@ import styles from "./page.module.css";
 
 const MAX_PLAYERS = 6;
 
+const SECONDS_BY_TIMING = { fast: 90, normal: 180, long: 300 };
+function timingFromSeconds(s) {
+  if (typeof s !== "number") return "normal";
+  if (s <= 90) return "fast";
+  if (s >= 300) return "long";
+  return "normal";
+}
+
 function useRoomIdFromCode(code) {
   const [roomId, setRoomId] = useState(null);
   const [notFound, setNotFound] = useState(false);
@@ -82,12 +90,39 @@ export default function WaitingRoom() {
   const { room, players, loading, error } = useRoom(roomId);
   const me = useMe(code);
 
-  // Cosmetic game-settings state (not yet backend-wired; redesign UX shell).
-  const [timing, setTiming] = useState("normal");
+  // Timing is derived from the server's room.phase_duration_seconds —
+  // changing it PATCHes the settings endpoint and the Realtime update
+  // flows back here, so all hosts/clients see the same value.
+  const timing = timingFromSeconds(room?.phase_duration_seconds);
+  // Bots and spectators are still cosmetic — the backend doesn't support
+  // either, so these stay local-only until those features land.
   const [bots, setBots] = useState(true);
   const [spectators, setSpectators] = useState(false);
 
   const [kickingId, setKickingId] = useState(null);
+  const [savingTiming, setSavingTiming] = useState(false);
+
+  const handleTimingChange = async (value) => {
+    if (!me?.isHost || !code) return;
+    const seconds = SECONDS_BY_TIMING[value] ?? 180;
+    setSavingTiming(true);
+    try {
+      const res = await fetch(`/api/rooms/${code}/settings`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ phaseDurationSeconds: seconds }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Round-timing update failed: ${err.error?.message ?? res.status}`);
+      }
+      // Realtime fans the rooms-row update; the radio re-derives.
+    } catch (err) {
+      console.error("[lobby] timing update failed:", err);
+    } finally {
+      setSavingTiming(false);
+    }
+  };
 
   useEffect(() => {
     if (notFound) router.replace("/");
@@ -302,7 +337,8 @@ export default function WaitingRoom() {
                         value={opt.value}
                         checked={timing === opt.value}
                         label={opt.label}
-                        onChange={() => setTiming(opt.value)}
+                        disabled={savingTiming}
+                        onChange={() => handleTimingChange(opt.value)}
                       />
                     ))}
                   </div>
